@@ -13,6 +13,10 @@ class RemindersScreen extends StatefulWidget {
 }
 
 class _RemindersScreenState extends State<RemindersScreen> {
+  bool _pushEnabled = true;
+  bool _soundEnabled = true;
+  bool _vibrationEnabled = true;
+
   void _showAddReminderDialog() {
     showModalBottomSheet(
       context: context,
@@ -127,23 +131,29 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     children: [
                       SwitchListTile(
                         title: const Text('Push Notifications'),
-                        value: true,
+                        value: _pushEnabled,
                         activeColor: AppColors.primary,
-                        onChanged: (val) {},
+                        onChanged: (val) {
+                          setState(() => _pushEnabled = val);
+                        },
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
                         title: const Text('Sound'),
-                        value: true,
+                        value: _soundEnabled,
                         activeColor: AppColors.primary,
-                        onChanged: (val) {},
+                        onChanged: (val) {
+                          setState(() => _soundEnabled = val);
+                        },
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
                         title: const Text('Vibration'),
-                        value: true,
+                        value: _vibrationEnabled,
                         activeColor: AppColors.primary,
-                        onChanged: (val) {},
+                        onChanged: (val) {
+                          setState(() => _vibrationEnabled = val);
+                        },
                       ),
                     ],
                   ),
