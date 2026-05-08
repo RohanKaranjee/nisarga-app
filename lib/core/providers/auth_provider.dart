@@ -18,11 +18,18 @@ class AuthProvider extends ChangeNotifier {
   
   bool _isLoading = true;
 
+  // Phone Auth State
+  String? _verificationId;
+  bool _isOtpSent = false;
+
   // Getters
   User? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
   Map<String, dynamic>? get userProfile => _userProfile;
+  
+  String? get verificationId => _verificationId;
+  bool get isOtpSent => _isOtpSent;
   
   /// Convenience getter for first name
   String get firstName => _userProfile?['firstName'] ?? user?.displayName?.split(' ').first ?? 'User';
@@ -125,6 +132,95 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.signOut();
       _userProfile = null;
+      _verificationId = null;
+      _isOtpSent = false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Sends an OTP to the given phone number.
+  Future<void> sendOtp(String phoneNumber) async {
+    _setLoading(true);
+    try {
+      await _authService.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Handle auto-retrieval on Android if needed.
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          _setLoading(false);
+          debugPrint('Verification Failed: ${e.message}');
+          throw e;
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          _verificationId = verificationId;
+          _isOtpSent = true;
+          _setLoading(false);
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      _setLoading(false);
+      rethrow;
+    }
+  }
+
+  /// Verifies the OTP and signs in the user. 
+  /// Returns `true` if the user is completely new and needs to set up their profile.
+  Future<bool> verifyOtp(String smsCode) async {
+    if (_verificationId == null) throw Exception("Verification ID is null. Request a new OTP.");
+    _setLoading(true);
+    try {
+      final credential = await _authService.signInWithPhoneCredential(_verificationId!, smsCode);
+      
+      // Check if user has a profile in Firestore
+      if (credential.user != null) {
+        final doc = await _firestore.collection('users').doc(credential.user!.uid).get();
+        if (!doc.exists) {
+          // User is new, needs profile completion
+          return true; 
+        } else {
+          // User exists, load profile
+          _userProfile = doc.data();
+        }
+      }
+      return false; // User is returning
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Complete profile for new users (Phone or Google Login)
+  Future<void> completeProfile({
+    required String firstName,
+    required String lastName,
+    String? contact,
+    String? address,
+    DateTime? dob,
+  }) async {
+    _setLoading(true);
+    try {
+      if (_user != null) {
+        await _user!.updateDisplayName('$firstName $lastName');
+        
+        final profileData = {
+          'firstName': firstName,
+          'lastName': lastName,
+          'email': _user!.email ?? '',
+          'phone': _user!.phoneNumber ?? '',
+          'contact': contact ?? _user!.phoneNumber ?? '',
+          'address': address ?? '',
+          'dob': dob?.toIso8601String() ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+        
+        await _firestore.collection('users').doc(_user!.uid).set(profileData);
+        _userProfile = profileData;
+        notifyListeners();
+      }
     } finally {
       _setLoading(false);
     }

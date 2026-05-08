@@ -190,6 +190,36 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.white30, thickness: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.white30, thickness: 1)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: () => context.push('/phone-login'),
+                    icon: const Icon(Icons.phone_android, color: Colors.white),
+                    label: const Text(
+                      'Login with Phone Number',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Colors.white70, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(

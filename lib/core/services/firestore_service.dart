@@ -128,4 +128,16 @@ class FirestoreService {
     }
     return null;
   }
+
+  /// Retrieves the entire cycle history for a user, ordered by date descending.
+  Future<List<CycleData>> getAllCycles(String userId) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(userId)
+        .collection('cycles')
+        .orderBy('startDate', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => CycleData.fromMap(doc.data())).toList();
+  }
 }

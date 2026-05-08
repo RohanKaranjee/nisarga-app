@@ -41,46 +41,51 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCkTj1fGqy9SaMSgxEGHRWR0u5_xQRey-E',
-    appId: '1:1027929042469:web:f926263e93ea76031d19cc',
-    messagingSenderId: '1027929042469',
-    projectId: 'nisarga-flutter-app-3030',
-    authDomain: 'nisarga-flutter-app-3030.firebaseapp.com',
-    storageBucket: 'nisarga-flutter-app-3030.firebasestorage.app',
+    apiKey: 'AIzaSyBbEVzEErKNTPYW6kre2QkM4d1ua8CnyI8',
+    appId: '1:446918210823:web:c8b4198f19a6bf0a1401a2',
+    messagingSenderId: '446918210823',
+    projectId: 'nisarga-app-main',
+    authDomain: 'nisarga-app-main.firebaseapp.com',
+    storageBucket: 'nisarga-app-main.firebasestorage.app',
+    measurementId: 'G-H0X34032KE',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBMaLaUlOa1njiZCW36NDrDwb4PKpWvW7o',
-    appId: '1:1027929042469:android:e8fc992665fab7381d19cc',
-    messagingSenderId: '1027929042469',
-    projectId: 'nisarga-flutter-app-3030',
-    storageBucket: 'nisarga-flutter-app-3030.firebasestorage.app',
+    apiKey: 'AIzaSyDf2e4Ya4k5VPdUMW04Y8SCzKbKRYHGHO4',
+    appId: '1:446918210823:android:fadfea438a1d7d081401a2',
+    messagingSenderId: '446918210823',
+    projectId: 'nisarga-app-main',
+    storageBucket: 'nisarga-app-main.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBUyP3tDHe6JvTnKhavAvPQc1ru4ivyNmw',
-    appId: '1:1027929042469:ios:e21f31747b16037c1d19cc',
-    messagingSenderId: '1027929042469',
-    projectId: 'nisarga-flutter-app-3030',
-    storageBucket: 'nisarga-flutter-app-3030.firebasestorage.app',
+    apiKey: 'AIzaSyD9tj9VHof9Hl3TLPPJw1QkUD9xdpYPlFQ',
+    appId: '1:446918210823:ios:c69f91b30bf00a4d1401a2',
+    messagingSenderId: '446918210823',
+    projectId: 'nisarga-app-main',
+    storageBucket: 'nisarga-app-main.firebasestorage.app',
+    iosClientId: '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
     iosBundleId: 'com.example.nisarga',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBUyP3tDHe6JvTnKhavAvPQc1ru4ivyNmw',
-    appId: '1:1027929042469:ios:e21f31747b16037c1d19cc',
-    messagingSenderId: '1027929042469',
-    projectId: 'nisarga-flutter-app-3030',
-    storageBucket: 'nisarga-flutter-app-3030.firebasestorage.app',
+    apiKey: 'AIzaSyD9tj9VHof9Hl3TLPPJw1QkUD9xdpYPlFQ',
+    appId: '1:446918210823:ios:c69f91b30bf00a4d1401a2',
+    messagingSenderId: '446918210823',
+    projectId: 'nisarga-app-main',
+    storageBucket: 'nisarga-app-main.firebasestorage.app',
+    iosClientId: '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
     iosBundleId: 'com.example.nisarga',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCkTj1fGqy9SaMSgxEGHRWR0u5_xQRey-E',
-    appId: '1:1027929042469:web:096c638fb467c67e1d19cc',
-    messagingSenderId: '1027929042469',
-    projectId: 'nisarga-flutter-app-3030',
-    authDomain: 'nisarga-flutter-app-3030.firebaseapp.com',
-    storageBucket: 'nisarga-flutter-app-3030.firebasestorage.app',
+    apiKey: 'AIzaSyBbEVzEErKNTPYW6kre2QkM4d1ua8CnyI8',
+    appId: '1:446918210823:web:9b4f3616222d6fdd1401a2',
+    messagingSenderId: '446918210823',
+    projectId: 'nisarga-app-main',
+    authDomain: 'nisarga-app-main.firebaseapp.com',
+    storageBucket: 'nisarga-app-main.firebasestorage.app',
+    measurementId: 'G-VD5ZPF5QF4',
   );
+
 }

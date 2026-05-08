@@ -11,11 +11,13 @@ class CycleProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   
   CycleData? _currentCycle;
+  List<CycleData> _cycleHistory = [];
   List<DailyLog> _recentLogs = [];
   DailyLog? _todaysLog;
   bool _isLoading = false;
 
   CycleData? get currentCycle => _currentCycle;
+  List<CycleData> get cycleHistory => _cycleHistory;
   List<DailyLog> get recentLogs => _recentLogs;
   DailyLog? get todaysLog => _todaysLog;
   bool get isLoading => _isLoading;
@@ -42,6 +44,25 @@ class CycleProvider extends ChangeNotifier {
     return _currentCycle?.cycleLength ?? 28;
   }
 
+  /// Calculates the average cycle length from history.
+  int get averageCycleLength {
+    if (_cycleHistory.isEmpty) return 28;
+    final total = _cycleHistory.fold(0, (sum, cycle) => sum + (cycle.cycleLength ?? 28));
+    return (total / _cycleHistory.length).round();
+  }
+
+  /// Calculates the shortest cycle length from history.
+  int get shortestCycleLength {
+    if (_cycleHistory.isEmpty) return 28;
+    return _cycleHistory.map((c) => c.cycleLength ?? 28).reduce((a, b) => a < b ? a : b);
+  }
+
+  /// Calculates the longest cycle length from history.
+  int get longestCycleLength {
+    if (_cycleHistory.isEmpty) return 28;
+    return _cycleHistory.map((c) => c.cycleLength ?? 28).reduce((a, b) => a > b ? a : b);
+  }
+
   /// Provides a fertility insight string based on cycle day.
   String get fertilityInsight {
     final day = currentCycleDay;
@@ -61,6 +82,9 @@ class CycleProvider extends ChangeNotifier {
     try {
       // Fetch the most recent cycle record
       _currentCycle = await _firestoreService.getLatestCycle(userId);
+      
+      // Fetch full cycle history
+      _cycleHistory = await _firestoreService.getAllCycles(userId);
       
       // Fetch recent daily logs (last 30 days)
       _recentLogs = await _firestoreService.getDailyLogs(userId, limit: 30);
@@ -103,6 +127,17 @@ class CycleProvider extends ChangeNotifier {
     try {
       await _firestoreService.saveCycleData(cycle);
       _currentCycle = cycle;
+      
+      // Update history list locally without full refetch
+      final index = _cycleHistory.indexWhere((c) => c.id == cycle.id);
+      if (index >= 0) {
+        _cycleHistory[index] = cycle;
+      } else {
+        _cycleHistory.insert(0, cycle);
+        // Ensure it's sorted descending by date
+        _cycleHistory.sort((a, b) => b.startDate.compareTo(a.startDate));
+      }
+      
       notifyListeners();
     } catch (e) {
       debugPrint('Error saving cycle data: $e');

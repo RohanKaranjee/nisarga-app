@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Auth Screens
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
+import '../../presentation/screens/auth/phone_login_screen.dart';
+import '../../presentation/screens/auth/otp_verification_screen.dart';
+import '../../presentation/screens/auth/complete_profile_screen.dart';
 
 // Main Navigation & Onboarding
 import '../../presentation/screens/main_screen.dart';
@@ -42,8 +45,23 @@ class AppRouter {
       final isLoggedIn = user != null;
       final currentPath = state.matchedLocation;
 
+      // If user is logged in, verify if they have completed their profile.
+      if (isLoggedIn) {
+        // We only check this if they are trying to access a core app page or just logged in.
+        // If they are on the complete-profile page, let them stay.
+        if (currentPath == '/complete-profile') return null;
+
+        // Check if user has a profile document in Firestore
+        // (Note: In a large app, you might want to cache this check or use the Provider directly, 
+        // but checking here ensures strict routing).
+        // Since doing a Firestore read on every route change is expensive, we typically 
+        // just let the AuthProvider handle the /complete-profile routing after login.
+        // However, to enforce it, we could check here. For now, we will trust the 
+        // verifyOtp and signIn flow to route to /complete-profile.
+      }
+
       // If user is logged in and trying to access auth screens, redirect to home
-      if (isLoggedIn && (currentPath == '/onboarding' || currentPath == '/login' || currentPath == '/register')) {
+      if (isLoggedIn && (currentPath == '/onboarding' || currentPath == '/login' || currentPath == '/register' || currentPath == '/phone-login' || currentPath == '/verify-otp')) {
         return '/';
       }
 
@@ -63,6 +81,9 @@ class AppRouter {
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+      GoRoute(path: '/phone-login', builder: (context, state) => const PhoneLoginScreen()),
+      GoRoute(path: '/verify-otp', builder: (context, state) => const OtpVerificationScreen()),
+      GoRoute(path: '/complete-profile', builder: (context, state) => const CompleteProfileScreen()),
       
       // ---------------- Main App Dashboard ----------------
       GoRoute(path: '/', builder: (context, state) => const MainScreen()),

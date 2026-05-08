@@ -50,10 +50,16 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Apply filters: first by search query, then by selected category
+    // Apply filters: split query by space and check if title contains all words
     List<Map<String, dynamic>> filteredContent = _searchQuery.isEmpty 
         ? [] 
-        : _allContent.where((c) => c['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+        : _allContent.where((c) {
+            final titleLower = c['title'].toString().toLowerCase();
+            final queryWords = _searchQuery.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+            if (queryWords.isEmpty) return false;
+            // Match if ANY word is in the title, making search more forgiving
+            return queryWords.any((word) => titleLower.contains(word));
+          }).toList();
 
     if (_selectedCategory != 'All' && _searchQuery.isNotEmpty) {
       filteredContent = filteredContent.where((c) => c['type'] == _selectedCategory).toList();
@@ -157,21 +163,25 @@ class _SearchScreenState extends State<SearchScreen> {
             itemCount: _quickLinks.length,
             itemBuilder: (context, index) {
               final link = _quickLinks[index];
-              return InkWell(
-                onTap: () => context.push(link['route']),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight.withOpacity(0.1),
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(link['icon'], color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(link['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
+                    onTap: () => context.push(link['route']),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(link['icon'], color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Text(link['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -180,9 +190,9 @@ class _SearchScreenState extends State<SearchScreen> {
           const SizedBox(height: 32),
           const Text('Recent Searches', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          _buildRecentSearchItem('PCOS Diet Plan'),
-          _buildRecentSearchItem('Irregular periods'),
-          _buildRecentSearchItem('Gynecologist near me'),
+          _buildRecentSearchItem('PCOS Diet'),
+          _buildRecentSearchItem('Cramps'),
+          _buildRecentSearchItem('Gynecologist'),
         ],
       ),
     );
