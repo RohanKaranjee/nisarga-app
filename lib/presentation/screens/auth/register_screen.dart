@@ -36,11 +36,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _pickDOB() async {
+    final DateTime maxDate = DateTime.now().subtract(const Duration(days: 12 * 365));
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(2000, 1, 1),
+      initialDate: maxDate,
       firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
+      lastDate: maxDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -81,7 +82,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           address: _addressController.text.trim(),
           dob: _selectedDOB!,
         );
-        if (mounted) context.go('/');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account created successfully! Please log in.')),
+          );
+          context.go('/login');
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -151,6 +157,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) return 'Required';
+                                      if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) return 'Only alphabets';
                                       return null;
                                     },
                                   ),
@@ -165,6 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) return 'Required';
+                                      if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) return 'Only alphabets';
                                       return null;
                                     },
                                   ),

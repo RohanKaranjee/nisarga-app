@@ -29,10 +29,6 @@ class DoctorDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
-            actions: [
-              IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
-              IconButton(icon: const Icon(Icons.share), onPressed: () {}),
-            ],
           ),
           SliverToBoxAdapter(
             child: Container(
@@ -116,10 +112,10 @@ class DoctorDetailScreen extends StatelessWidget {
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _buildDateCard('Mon', '12', true),
-                          _buildDateCard('Tue', '13', false),
-                          _buildDateCard('Wed', '14', false),
-                          _buildDateCard('Thu', '15', false),
+                          _buildDateCard('Mon', true),
+                          _buildDateCard('Tue', false),
+                          _buildDateCard('Wed', false),
+                          _buildDateCard('Thu', false),
                         ],
                       ),
                     ),
@@ -181,7 +177,7 @@ class DoctorDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDateCard(String day, String date, bool isSelected) {
+  Widget _buildDateCard(String day, bool isSelected) {
     return Container(
       width: 60,
       margin: const EdgeInsets.only(right: 12),
@@ -190,12 +186,8 @@ class DoctorDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.withOpacity(0.3)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(day, style: TextStyle(color: isSelected ? Colors.white70 : Colors.grey, fontSize: 12)),
-          Text(date, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
-        ],
+      child: Center(
+        child: Text(day, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
       ),
     );
   }

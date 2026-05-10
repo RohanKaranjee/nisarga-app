@@ -26,6 +26,18 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
   String _mood = 'okay';
   final _notesController = TextEditingController();
 
+  int _currentStep = 0;
+  final List<String> _selectedRemedies = [];
+  final List<String> _remediesList = [
+    'Hot water',
+    'Banana',
+    'Turmeric Milk',
+    'Black chocolate',
+    'Ginger Tea',
+    'Fenugreek Seeds & Hot water'
+  ];
+
+
   // Pre-defined options for the ChoiceChips
   final List<String> _flows = ['none', 'light', 'medium', 'heavy'];
   final List<String> _crampLevels = ['none', 'mild', 'moderate', 'severe'];
@@ -55,6 +67,12 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     
+    String finalNotes = _notesController.text;
+    if (_selectedRemedies.isNotEmpty) {
+      finalNotes += finalNotes.isEmpty ? 'Remedies: ' : '\nRemedies: ';
+      finalNotes += _selectedRemedies.join(', ');
+    }
+
     // Create the data model with the REAL user ID
     final log = DailyLog(
       id: dateStr,
@@ -65,7 +83,7 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
       cramps: _cramps,
       mood: _mood,
       energy: 'moderate',
-      notes: _notesController.text,
+      notes: finalNotes,
     );
 
     // Save using provider
@@ -136,89 +154,130 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
             ),
             const Divider(),
             
-            // ---------------- FLOW SECTION ----------------
-            const SizedBox(height: 10),
-            const Text('Bleeding Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              children: _flows.map((f) => ChoiceChip(
-                label: Text(f.capitalize()),
-                selected: _flow == f,
-                onSelected: (selected) {
-                  if (selected) setState(() => _flow = f);
-                },
-                selectedColor: AppColors.primaryLight.withOpacity(0.5),
-              )).toList(),
-            ),
-
-            // ---------------- SPOTTING SECTION ----------------
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Spotting', style: TextStyle(fontWeight: FontWeight.bold)),
-              value: _spotting,
-              activeColor: AppColors.primary,
-              onChanged: (val) {
-                setState(() => _spotting = val ?? false);
-              },
-            ),
-
-            // ---------------- CRAMPS SECTION ----------------
-            const SizedBox(height: 10),
-            const Text('Cramps', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              children: _crampLevels.map((c) => ChoiceChip(
-                label: Text(c.capitalize()),
-                selected: _cramps == c,
-                onSelected: (selected) {
-                  if (selected) setState(() => _cramps = c);
-                },
-                selectedColor: AppColors.primaryLight.withOpacity(0.5),
-              )).toList(),
-            ),
-
-            // ---------------- MOOD SECTION ----------------
-            const SizedBox(height: 20),
-            const Text('Mood', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _moods.map((m) => ChoiceChip(
-                label: Text(m.capitalize()),
-                selected: _mood == m,
-                onSelected: (selected) {
-                  if (selected) setState(() => _mood = m);
-                },
-                selectedColor: AppColors.primaryLight.withOpacity(0.5),
-              )).toList(),
-            ),
-
-
-            // ---------------- NOTES SECTION ----------------
-            const SizedBox(height: 20),
-            const Text('Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Any other symptoms or notes?',
+            if (_currentStep == 0) ...[
+              // ---------------- FLOW SECTION ----------------
+              const SizedBox(height: 10),
+              const Text('Bleeding Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                children: _flows.map((f) => ChoiceChip(
+                  label: Text(f.capitalize()),
+                  selected: _flow == f,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _flow = f);
+                  },
+                  selectedColor: AppColors.primaryLight.withOpacity(0.5),
+                )).toList(),
               ),
-            ),
-            
-            const SizedBox(height: 20),
-            // Save Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saveLog,
-                child: const Text('Save Log'),
+
+              // ---------------- SPOTTING SECTION ----------------
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Spotting', style: TextStyle(fontWeight: FontWeight.bold)),
+                value: _spotting,
+                activeColor: AppColors.primary,
+                onChanged: (val) {
+                  setState(() => _spotting = val ?? false);
+                },
               ),
-            ),
-            const SizedBox(height: 20),
+
+              // ---------------- CRAMPS SECTION ----------------
+              const SizedBox(height: 10),
+              const Text('Cramps', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                children: _crampLevels.map((c) => ChoiceChip(
+                  label: Text(c.capitalize()),
+                  selected: _cramps == c,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _cramps = c);
+                  },
+                  selectedColor: AppColors.primaryLight.withOpacity(0.5),
+                )).toList(),
+              ),
+
+              // ---------------- MOOD SECTION ----------------
+              const SizedBox(height: 20),
+              const Text('Mood', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _moods.map((m) => ChoiceChip(
+                  label: Text(m.capitalize()),
+                  selected: _mood == m,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _mood = m);
+                  },
+                  selectedColor: AppColors.primaryLight.withOpacity(0.5),
+                )).toList(),
+              ),
+
+
+              // ---------------- NOTES SECTION ----------------
+              const SizedBox(height: 20),
+              const Text('Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Any other symptoms or notes?',
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              // Next Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _currentStep = 1),
+                  child: const Text('Next'),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ] else ...[
+              // ---------------- REMEDIES SECTION ----------------
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => setState(() => _currentStep = 0),
+                  ),
+                  const Text('Select Remedies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ..._remediesList.map((remedy) {
+                return CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(remedy),
+                  value: _selectedRemedies.contains(remedy),
+                  activeColor: AppColors.primary,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true) {
+                        _selectedRemedies.add(remedy);
+                      } else {
+                        _selectedRemedies.remove(remedy);
+                      }
+                    });
+                  },
+                );
+              }),
+              const SizedBox(height: 20),
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saveLog,
+                  child: const Text('Save Log'),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ],
         ),
       ),
