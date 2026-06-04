@@ -1,34 +1,32 @@
-import 'package:flutter/material.dart';
-
 /// Data Model representing a daily health and symptom log.
-/// 
+///
 /// Contains information about bleeding flow, cramps, mood, energy levels,
 /// and any custom notes the user wants to add for a specific day.
 class DailyLog {
   /// Unique identifier, usually in the format 'YYYY-MM-DD'
   final String id;
-  
+
   /// The ID of the user who owns this log
   final String userId;
-  
+
   /// The date this log corresponds to
   final DateTime date;
-  
+
   /// Bleeding flow intensity: 'light', 'medium', 'heavy', 'none'
   final String flow;
-  
+
   /// Whether spotting occurred
   final bool spotting;
-  
+
   /// Cramp intensity: 'none', 'mild', 'moderate', 'severe'
   final String cramps;
-  
+
   /// User's mood: 'happy', 'good', 'okay', 'sad', 'anxious', 'irritable'
   final String mood;
-  
+
   /// Energy levels: 'low', 'moderate', 'high'
   final String energy;
-  
+
   /// Any custom text notes
   final String notes;
 
@@ -44,13 +42,14 @@ class DailyLog {
     this.notes = '',
   });
 
-  /// Converts this DailyLog object into a Map (JSON) so it can be 
+  /// Converts this DailyLog object into a Map (JSON) so it can be
   /// saved to a NoSQL database like Firestore.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'userId': userId,
-      'date': date.toIso8601String(), // Serialize DateTime to standard string format
+      'date': date
+          .toIso8601String(), // Serialize DateTime to standard string format
       'flow': flow,
       'spotting': spotting,
       'cramps': cramps,

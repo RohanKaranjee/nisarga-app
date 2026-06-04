@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/models/article.dart';
+import '../../../core/models/doctor.dart';
+import '../../../core/models/home_remedy.dart';
+import '../../../core/models/medicine.dart';
+import '../../../core/models/product.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -10,36 +16,18 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final FirestoreService _service = FirestoreService();
   String _searchQuery = '';
   String _selectedCategory = 'All';
 
-  final List<String> _categories = [
-    'All', 'Doctors', 'Articles', 'Remedies', 'Medicines', 'Products'
-  ];
-
-  final List<Map<String, dynamic>> _quickLinks = [
-    {"title": "PCOD Diet", "route": "/pcod", "icon": Icons.restaurant_menu},
-    {"title": "Period Pain", "route": "/home-remedies", "icon": Icons.healing},
-    {"title": "Track Cycle", "route": "/cycle-history", "icon": Icons.calendar_month},
-    {"title": "Find Doctor", "route": "/doctor", "icon": Icons.medical_services},
-  ];
-
-  final List<Map<String, dynamic>> _allContent = [
-    {"title": "Understanding Menstrual Health", "type": "Articles", "route": "/articles"},
-    {"title": "PCOD vs PCOS Difference", "type": "Articles", "route": "/articles"},
-    {"title": "Diet for PCOS Management", "type": "Articles", "route": "/articles"},
-    {"title": "Dr. Sarah Johnson (Gynecologist)", "type": "Doctors", "route": "/doctor/1"},
-    {"title": "Dr. Priya Sharma (PCOS Specialist)", "type": "Doctors", "route": "/doctor/2"},
-    {"title": "Dr. Kavita Desai (Fertility)", "type": "Doctors", "route": "/doctor/3"},
-    {"title": "Ginger Tea for Cramps", "type": "Remedies", "route": "/home-remedies"},
-    {"title": "Cinnamon Water", "type": "Remedies", "route": "/home-remedies"},
-    {"title": "Flaxseeds for Hormones", "type": "Remedies", "route": "/home-remedies"},
-    {"title": "Metformin", "type": "Medicines", "route": "/medicines"},
-    {"title": "Birth Control Pills", "type": "Medicines", "route": "/medicines"},
-    {"title": "Organic Cotton Pads", "type": "Products", "route": "/pads"},
-    {"title": "Menstrual Cup", "type": "Products", "route": "/pads"},
-    {"title": "Overnight Pads", "type": "Products", "route": "/pads"},
+  final List<String> _categories = const [
+    'All',
+    'Doctors',
+    'Articles',
+    'Remedies',
+    'Medicines',
+    'Products'
   ];
 
   @override
@@ -50,47 +38,33 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Apply filters: split query by space and check if title contains all words
-    List<Map<String, dynamic>> filteredContent = _searchQuery.isEmpty 
-        ? [] 
-        : _allContent.where((c) {
-            final titleLower = c['title'].toString().toLowerCase();
-            final queryWords = _searchQuery.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
-            if (queryWords.isEmpty) return false;
-            // Match if ANY word is in the title, making search more forgiving
-            return queryWords.any((word) => titleLower.contains(word));
-          }).toList();
-
-    if (_selectedCategory != 'All' && _searchQuery.isNotEmpty) {
-      filteredContent = filteredContent.where((c) => c['type'] == _selectedCategory).toList();
-    }
-
     return Scaffold(
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (value) => setState(() => _searchQuery = value),
                     decoration: InputDecoration(
                       hintText: 'Search doctors, articles, remedies...',
                       prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchQuery.isNotEmpty 
-                          ? IconButton(
+                      suffixIcon: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _searchQuery = '');
                               },
-                            ) 
-                          : null,
-                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            ),
+                      fillColor:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       filled: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -98,44 +72,40 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                   ),
-                  
-                  // Category Filter Chips below search bar
-                  if (_searchQuery.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
-                      child: SizedBox(
-                        height: 40,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _categories.length,
-                          itemBuilder: (context, index) {
-                            final category = _categories[index];
-                            final isSelected = _selectedCategory == category;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: ChoiceChip(
-                                label: Text(category),
-                                selected: isSelected,
-                                selectedColor: AppColors.primaryLight.withOpacity(0.3),
-                                onSelected: (selected) {
-                                  setState(() {
-                                    _selectedCategory = category;
-                                  });
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                  if (_searchQuery.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 40,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+                          final selected = _selectedCategory == category;
+                          return ChoiceChip(
+                            label: Text(category),
+                            selected: selected,
+                            selectedColor:
+                                AppColors.primaryLight.withValues(alpha: 0.3),
+                            onSelected: (_) =>
+                                setState(() => _selectedCategory = category),
+                          );
+                        },
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-            
             Expanded(
               child: _searchQuery.isEmpty
                   ? _buildDefaultView()
-                  : _buildSearchResults(filteredContent),
+                  : _RealtimeResults(
+                      service: _service,
+                      query: _searchQuery,
+                      category: _selectedCategory,
+                    ),
             ),
           ],
         ),
@@ -144,76 +114,184 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDefaultView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Quick Links', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 2.5,
-            ),
-            itemCount: _quickLinks.length,
-            itemBuilder: (context, index) {
-              final link = _quickLinks[index];
-              return Container(
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(15),
-                    onTap: () => context.push(link['route']),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(link['icon'], color: AppColors.primary, size: 20),
-                        const SizedBox(width: 8),
-                        Text(link['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 32),
-          const Text('Recent Searches', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          _buildRecentSearchItem('PCOS Diet'),
-          _buildRecentSearchItem('Cramps'),
-          _buildRecentSearchItem('Gynecologist'),
-        ],
+    const links = [
+      _QuickLink('PCOD Diet', '/pcod', Icons.restaurant_menu),
+      _QuickLink('Period Pain', '/home-remedies', Icons.healing),
+      _QuickLink('Track Cycle', '/cycle-history', Icons.calendar_month),
+      _QuickLink('Find Doctor', '/doctor', Icons.medical_services),
+      _QuickLink('Appointments', '/appointments', Icons.event_available),
+      _QuickLink('Prescriptions', '/prescriptions', Icons.receipt_long),
+      _QuickLink('Notifications', '/notifications', Icons.notifications),
+    ];
+
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 2.5,
       ),
+      itemCount: links.length,
+      itemBuilder: (context, index) {
+        final link = links[index];
+        return InkWell(
+          onTap: () => context.push(link.route),
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(15),
+              border:
+                  Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(link.icon, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(link.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
+}
 
-  Widget _buildRecentSearchItem(String query) {
-    return ListTile(
-      leading: const Icon(Icons.history, color: Colors.grey),
-      title: Text(query),
-      trailing: const Icon(Icons.north_west, size: 16, color: Colors.grey),
-      onTap: () {
-        _searchController.text = query;
-        setState(() {
-          _searchQuery = query;
-          _selectedCategory = 'All'; // reset filter on new search
-        });
+class _RealtimeResults extends StatelessWidget {
+  final FirestoreService service;
+  final String query;
+  final String category;
+
+  const _RealtimeResults({
+    required this.service,
+    required this.query,
+    required this.category,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Doctor>>(
+      stream: service.watchDoctors(),
+      builder: (context, doctors) {
+        return StreamBuilder<List<Article>>(
+          stream: service.watchArticles(),
+          builder: (context, articles) {
+            return StreamBuilder<List<HomeRemedy>>(
+              stream: service.watchHomeRemedies(),
+              builder: (context, remedies) {
+                return StreamBuilder<List<Medicine>>(
+                  stream: service.watchMedicines(),
+                  builder: (context, medicines) {
+                    return StreamBuilder<List<Product>>(
+                      stream: service.watchProducts(),
+                      builder: (context, products) {
+                        final loading = [
+                          doctors,
+                          articles,
+                          remedies,
+                          medicines,
+                          products
+                        ].any((snapshot) =>
+                            snapshot.connectionState ==
+                            ConnectionState.waiting);
+                        if (loading) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        final results = _buildResults(
+                          doctors.data ?? [],
+                          articles.data ?? [],
+                          remedies.data ?? [],
+                          medicines.data ?? [],
+                          products.data ?? [],
+                        );
+                        return _ResultList(results: results);
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _buildSearchResults(List<Map<String, dynamic>> results) {
+  List<_SearchResult> _buildResults(
+    List<Doctor> doctors,
+    List<Article> articles,
+    List<HomeRemedy> remedies,
+    List<Medicine> medicines,
+    List<Product> products,
+  ) {
+    final all = [
+      ...doctors.map((doctor) => _SearchResult(
+            title: doctor.name,
+            type: 'Doctors',
+            route: '/doctor/${doctor.id}',
+            icon: Icons.medical_services,
+          )),
+      ...articles.map((article) => _SearchResult(
+            title: article.title,
+            type: 'Articles',
+            route: '/article-detail',
+            icon: Icons.article,
+            extra: {
+              'title': article.title,
+              'author': article.author,
+              'readTime': article.readTime,
+              'category': article.category,
+              'imagePath': article.imageUrl,
+              'content': article.content,
+            },
+          )),
+      ...remedies.map((remedy) => _SearchResult(
+            title: remedy.title,
+            type: 'Remedies',
+            route: '/home-remedies',
+            icon: Icons.spa,
+          )),
+      ...medicines.map((medicine) => _SearchResult(
+            title: medicine.name,
+            type: 'Medicines',
+            route: '/medicines',
+            icon: Icons.medication,
+          )),
+      ...products.map((product) => _SearchResult(
+            title: product.name,
+            type: 'Products',
+            route: '/pads',
+            icon: Icons.shopping_bag,
+          )),
+    ];
+
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty);
+
+    return all.where((item) {
+      if (category != 'All' && item.type != category) return false;
+      final title = item.title.toLowerCase();
+      return words.any(title.contains);
+    }).toList();
+  }
+}
+
+class _ResultList extends StatelessWidget {
+  final List<_SearchResult> results;
+  const _ResultList({required this.results});
+
+  @override
+  Widget build(BuildContext context) {
     if (results.isEmpty) {
       return Center(
         child: Column(
@@ -221,53 +299,51 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            const Text('No results found.', style: TextStyle(color: Colors.grey)),
+            const Text('No results found.',
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text(
-            'Found ${results.length} result${results.length == 1 ? '' : 's'}',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+
+    return ListView.builder(
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final item = results[index];
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: AppColors.primaryLight.withValues(alpha: 0.2),
+            child: Icon(item.icon, color: AppColors.primary),
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: results.length,
-            itemBuilder: (context, index) {
-              final item = results[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.primaryLight.withOpacity(0.2),
-                  child: Icon(
-                    _getIconForType(item['type']), 
-                    color: AppColors.primary
-                  ),
-                ),
-                title: Text(item['title']),
-                subtitle: Text(item['type']),
-                onTap: () => context.push(item['route']),
-              );
-            },
-          ),
-        ),
-      ],
+          title: Text(item.title),
+          subtitle: Text(item.type),
+          onTap: () => context.push(item.route, extra: item.extra),
+        );
+      },
     );
   }
+}
 
-  IconData _getIconForType(String type) {
-    switch (type) {
-      case 'Doctors': return Icons.medical_services;
-      case 'Articles': return Icons.article;
-      case 'Remedies': return Icons.spa;
-      case 'Medicines': return Icons.medication;
-      case 'Products': return Icons.shopping_bag;
-      default: return Icons.search;
-    }
-  }
+class _SearchResult {
+  final String title;
+  final String type;
+  final String route;
+  final IconData icon;
+  final Object? extra;
+
+  const _SearchResult({
+    required this.title,
+    required this.type,
+    required this.route,
+    required this.icon,
+    this.extra,
+  });
+}
+
+class _QuickLink {
+  final String title;
+  final String route;
+  final IconData icon;
+
+  const _QuickLink(this.title, this.route, this.icon);
 }

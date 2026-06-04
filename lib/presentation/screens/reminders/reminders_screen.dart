@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/gradient_header.dart';
 import '../../../core/models/reminder.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/reminder_provider.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 class RemindersScreen extends StatefulWidget {
@@ -13,10 +15,6 @@ class RemindersScreen extends StatefulWidget {
 }
 
 class _RemindersScreenState extends State<RemindersScreen> {
-  bool _pushEnabled = true;
-  bool _soundEnabled = true;
-  bool _vibrationEnabled = true;
-
   void _showAddReminderDialog() {
     showModalBottomSheet(
       context: context,
@@ -28,6 +26,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final preferences = Map<String, dynamic>.from(
+        authProvider.userProfile?['notificationPreferences'] ?? {});
     return Scaffold(
       appBar: AppBar(title: const Text('Reminders')),
       body: Consumer<ReminderProvider>(
@@ -54,13 +55,19 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withOpacity(0.1),
+                          color: AppColors.primaryLight.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: Column(
                           children: [
-                            Text('$activeCount', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                            const Text('Active', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('$activeCount',
+                                style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary)),
+                            const Text('Active',
+                                style: TextStyle(
+                                    color: Colors.grey, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -75,8 +82,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         ),
                         child: Column(
                           children: [
-                            Text('${reminders.length}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey)),
-                            const Text('Total', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('${reminders.length}',
+                                style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey)),
+                            const Text('Total',
+                                style: TextStyle(
+                                    color: Colors.grey, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -91,19 +104,25 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     onPressed: _showAddReminderDialog,
                     icon: const Icon(Icons.add),
                     label: const Text('Add New Reminder'),
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                    style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16)),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                const Text('Your Reminders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Your Reminders',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
 
                 if (reminders.isEmpty)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
-                      child: Text('No reminders set yet. Click Add New Reminder to create one.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                          'No reminders set yet. Click Add New Reminder to create one.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey)),
                     ),
                   )
                 else
@@ -119,41 +138,41 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ),
 
                 const SizedBox(height: 32),
-                const Text('Notification Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Notification Settings',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                    border:
+                        Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
                   child: Column(
                     children: [
                       SwitchListTile(
                         title: const Text('Push Notifications'),
-                        value: _pushEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) {
-                          setState(() => _pushEnabled = val);
-                        },
+                        value: _preference(preferences, 'push', true),
+                        activeThumbColor: AppColors.primary,
+                        onChanged: (val) => _savePreference(
+                            authProvider, preferences, 'push', val),
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
                         title: const Text('Sound'),
-                        value: _soundEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) {
-                          setState(() => _soundEnabled = val);
-                        },
+                        value: _preference(preferences, 'sound', true),
+                        activeThumbColor: AppColors.primary,
+                        onChanged: (val) => _savePreference(
+                            authProvider, preferences, 'sound', val),
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
                         title: const Text('Vibration'),
-                        value: _vibrationEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) {
-                          setState(() => _vibrationEnabled = val);
-                        },
+                        value: _preference(preferences, 'vibration', true),
+                        activeThumbColor: AppColors.primary,
+                        onChanged: (val) => _savePreference(
+                            authProvider, preferences, 'vibration', val),
                       ),
                     ],
                   ),
@@ -167,13 +186,31 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
   }
 
+  bool _preference(
+      Map<String, dynamic> preferences, String key, bool defaultValue) {
+    final value = preferences[key];
+    return value is bool ? value : defaultValue;
+  }
+
+  Future<void> _savePreference(AuthProvider authProvider,
+      Map<String, dynamic> preferences, String key, bool value) async {
+    final userId = authProvider.user?.uid;
+    if (userId == null) return;
+    final updated = {...preferences, key: value};
+    await FirestoreService().updateNotificationPreferences(userId, updated);
+  }
+
   Widget _buildReminderCard(Reminder reminder, ReminderProvider provider) {
     IconData getIcon(String type) {
       switch (type.toLowerCase()) {
-        case 'medicine': return Icons.medication;
-        case 'water': return Icons.water_drop;
-        case 'doctor': return Icons.medical_services;
-        default: return Icons.calendar_month;
+        case 'medicine':
+          return Icons.medication;
+        case 'water':
+          return Icons.water_drop;
+        case 'doctor':
+          return Icons.medical_services;
+        default:
+          return Icons.calendar_month;
       }
     }
 
@@ -182,11 +219,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
         boxShadow: [
           if (reminder.enabled)
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.05),
+              color: AppColors.primary.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             )
@@ -197,23 +234,39 @@ class _RemindersScreenState extends State<RemindersScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: reminder.enabled ? AppColors.primaryLight.withOpacity(0.2) : Colors.grey.shade100,
+              color: reminder.enabled
+                  ? AppColors.primaryLight.withValues(alpha: 0.2)
+                  : Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
-            child: Icon(getIcon(reminder.type), color: reminder.enabled ? AppColors.primary : Colors.grey),
+            child: Icon(getIcon(reminder.type),
+                color: reminder.enabled ? AppColors.primary : Colors.grey),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(reminder.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: reminder.enabled ? Colors.black : Colors.grey)),
+                Text(reminder.title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: reminder.enabled ? Colors.black : Colors.grey)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.schedule, size: 14, color: reminder.enabled ? AppColors.primary : Colors.grey),
+                    Icon(Icons.schedule,
+                        size: 14,
+                        color:
+                            reminder.enabled ? AppColors.primary : Colors.grey),
                     const SizedBox(width: 4),
-                    Text(reminder.time, style: TextStyle(color: reminder.enabled ? AppColors.primary : Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(reminder.time,
+                        style: TextStyle(
+                            color: reminder.enabled
+                                ? AppColors.primary
+                                : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   ],
                 ),
               ],
@@ -221,7 +274,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           ),
           Switch(
             value: reminder.enabled,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
             onChanged: (val) => provider.toggleReminder(reminder, val),
           ),
         ],
@@ -252,15 +305,17 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
 
   void _save() {
     if (_titleController.text.isEmpty) return;
-    
+    final userId = Provider.of<AuthProvider>(context, listen: false).user?.uid;
+    if (userId == null) return;
+
     final reminder = Reminder(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: 'current',
+      userId: userId,
       type: _type,
       title: _titleController.text,
       time: _time.format(context),
     );
-    
+
     Provider.of<ReminderProvider>(context, listen: false).addReminder(reminder);
     Navigator.pop(context);
   }
@@ -269,8 +324,12 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 16,
-        left: 20, right: 20, top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            16,
+        left: 20,
+        right: 20,
+        top: 20,
       ),
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -282,39 +341,48 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+              child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10))),
             ),
             const SizedBox(height: 20),
-            const Text('Add Reminder', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text('Add Reminder',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            
-            const Text('Reminder Type', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Reminder Type',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _type,
-              items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              initialValue: _type,
+              items: _types
+                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                  .toList(),
               onChanged: (val) => setState(() => _type = val!),
               decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
-            
             const Text('Title', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(hintText: 'e.g. Take Metformin', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                  hintText: 'Reminder title', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
-            
             const Text('Time', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             InkWell(
               onTap: () async {
-                final time = await showTimePicker(context: context, initialTime: _time);
+                final time =
+                    await showTimePicker(context: context, initialTime: _time);
                 if (time != null) setState(() => _time = time);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(15),
@@ -329,7 +397,6 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/gradient_header.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/models/daily_log.dart';
 import '../../../core/providers/cycle_provider.dart';
 
 class CycleHistoryScreen extends StatefulWidget {
@@ -23,6 +24,9 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
       body: Consumer<CycleProvider>(
         builder: (context, cycleProvider, child) {
           final history = cycleProvider.cycleHistory;
+          final symptomCounts = _buildSymptomCounts(cycleProvider.recentLogs);
+          final highestSymptomCount = symptomCounts.fold<int>(0,
+              (highest, item) => item.count > highest ? item.count : highest);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -34,11 +38,11 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                   subtitle: 'Track your patterns and symptoms',
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Toggle
-                Container(
+                  Container(
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Row(
@@ -49,14 +53,18 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: _showCharts ? AppColors.primary : Colors.transparent,
+                              color: _showCharts
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: Text(
                               'Charts & Stats',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: _showCharts ? Colors.white : Colors.grey.shade600,
+                                color: _showCharts
+                                    ? Colors.white
+                                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -69,14 +77,18 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: !_showCharts ? AppColors.primary : Colors.transparent,
+                              color: !_showCharts
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: Text(
                               'History List',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: !_showCharts ? Colors.white : Colors.grey.shade600,
+                                color: !_showCharts
+                                    ? Colors.white
+                                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -92,15 +104,33 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                   // Stats
                   Row(
                     children: [
-                      Expanded(child: _buildStatCard('Average', '${cycleProvider.averageCycleLength}', 'Days')),
+                      Expanded(
+                          child: _buildStatCard(
+                              'Average',
+                              history.isEmpty
+                                  ? '--'
+                                  : '${cycleProvider.averageCycleLength}',
+                              'Days')),
                       const SizedBox(width: 12),
-                      Expanded(child: _buildStatCard('Shortest', '${cycleProvider.shortestCycleLength}', 'Days')),
+                      Expanded(
+                          child: _buildStatCard(
+                              'Shortest',
+                              history.isEmpty
+                                  ? '--'
+                                  : '${cycleProvider.shortestCycleLength}',
+                              'Days')),
                       const SizedBox(width: 12),
-                      Expanded(child: _buildStatCard('Longest', '${cycleProvider.longestCycleLength}', 'Days')),
+                      Expanded(
+                          child: _buildStatCard(
+                              'Longest',
+                              history.isEmpty
+                                  ? '--'
+                                  : '${cycleProvider.longestCycleLength}',
+                              'Days')),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Line Chart
                   if (history.isNotEmpty)
                     Container(
@@ -113,7 +143,9 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Cycle Length Trend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text('Cycle Length Trend',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(height: 24),
                           SizedBox(
                             height: 200,
@@ -121,29 +153,50 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                               LineChartData(
                                 gridData: FlGridData(show: false),
                                 titlesData: FlTitlesData(
-                                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
-                                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 22, getTitlesWidget: (val, meta) {
-                                    final index = history.length - 1 - val.toInt(); // Reverse index for chronological order
-                                    if (index >= 0 && index < history.length) {
-                                      final month = DateFormat('MMM').format(history[index].startDate);
-                                      return Text(month, style: const TextStyle(fontSize: 10));
-                                    }
-                                    return const Text('');
-                                  })),
-                                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                  leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                          showTitles: true, reservedSize: 30)),
+                                  bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: 22,
+                                          getTitlesWidget: (val, meta) {
+                                            final index = history.length -
+                                                1 -
+                                                val.toInt(); // Reverse index for chronological order
+                                            if (index >= 0 &&
+                                                index < history.length) {
+                                              final month = DateFormat('MMM')
+                                                  .format(
+                                                      history[index].startDate);
+                                              return Text(month,
+                                                  style: const TextStyle(
+                                                      fontSize: 10));
+                                            }
+                                            return const Text('');
+                                          })),
+                                  rightTitles: AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
+                                  topTitles: AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
                                 ),
                                 borderData: FlBorderData(show: false),
                                 minX: 0,
-                                maxX: (history.length - 1).toDouble().clamp(0, double.infinity),
+                                maxX: (history.length - 1)
+                                    .toDouble()
+                                    .clamp(0, double.infinity),
                                 minY: 20,
                                 maxY: 40,
                                 lineBarsData: [
                                   LineChartBarData(
                                     spots: history.asMap().entries.map((e) {
                                       // Reverse mapping to plot chronological (oldest left, newest right)
-                                      final x = (history.length - 1 - e.key).toDouble();
-                                      final y = (e.value.cycleLength ?? 28).toDouble();
+                                      final x = (history.length - 1 - e.key)
+                                          .toDouble();
+                                      final y = (e.value.cycleLength ?? 28)
+                                          .toDouble();
                                       return FlSpot(x, y);
                                     }).toList(),
                                     isCurved: true,
@@ -166,11 +219,13 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                   else
                     const Padding(
                       padding: EdgeInsets.all(32.0),
-                      child: Text('Not enough data for charts. Log your cycles to see trends!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                          'Not enough data for charts. Log your cycles to see trends!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey)),
                     ),
                   const SizedBox(height: 24),
 
-                  // Symptom Bar Chart (Static Placeholder)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -181,36 +236,71 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Symptom Frequency (Last 6 Months)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text('Symptom Frequency (Recent Logs)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 24),
-                        SizedBox(
-                          height: 200,
-                          child: BarChart(
-                            BarChartData(
-                              gridData: FlGridData(show: false),
-                              titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
-                                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 22, getTitlesWidget: (val, meta) {
-                                  const symptoms = ['Cramps', 'Bloating', 'Headache', 'Mood', 'Fatigue'];
-                                  if (val.toInt() >= 0 && val.toInt() < symptoms.length) {
-                                    return Text(symptoms[val.toInt()], style: const TextStyle(fontSize: 10));
-                                  }
-                                  return const Text('');
-                                })),
-                                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        if (highestSymptomCount == 0)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(
+                              child: Text(
+                                'No symptom logs yet.',
+                                style: TextStyle(color: Colors.grey),
                               ),
-                              borderData: FlBorderData(show: false),
-                              barGroups: [
-                                BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 5, color: Colors.red.shade300)]),
-                                BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 3, color: Colors.blue.shade300)]),
-                                BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 2, color: Colors.orange.shade300)]),
-                                BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 4, color: Colors.purple.shade300)]),
-                                BarChartGroupData(x: 4, barRods: [BarChartRodData(toY: 6, color: Colors.teal.shade300)]),
-                              ],
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 200,
+                            child: BarChart(
+                              BarChartData(
+                                gridData: FlGridData(show: false),
+                                titlesData: FlTitlesData(
+                                  leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                          showTitles: true, reservedSize: 30)),
+                                  bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: 32,
+                                          getTitlesWidget: (val, meta) {
+                                            final index = val.toInt();
+                                            if (index >= 0 &&
+                                                index < symptomCounts.length) {
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 6),
+                                                child: Text(
+                                                  symptomCounts[index].label,
+                                                  style: const TextStyle(
+                                                      fontSize: 10),
+                                                ),
+                                              );
+                                            }
+                                            return const Text('');
+                                          })),
+                                  rightTitles: AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
+                                  topTitles: AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
+                                ),
+                                borderData: FlBorderData(show: false),
+                                maxY: (highestSymptomCount + 1).toDouble(),
+                                barGroups: [
+                                  for (var i = 0; i < symptomCounts.length; i++)
+                                    BarChartGroupData(x: i, barRods: [
+                                      BarChartRodData(
+                                        toY: symptomCounts[i].count.toDouble(),
+                                        color: symptomCounts[i].color,
+                                      )
+                                    ]),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -219,7 +309,10 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                   if (history.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32.0),
-                      child: Text('No past cycles recorded. Tap "Log Today\'s Symptoms" or the cycle day counter on the Home screen to record a cycle!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                          'No past cycles recorded. Tap "Log Today\'s Symptoms" or the cycle day counter on the Home screen to record a cycle!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey)),
                     )
                   else
                     ListView.separated(
@@ -230,48 +323,52 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                       itemBuilder: (context, index) {
                         final cycle = history[index];
                         final length = cycle.cycleLength ?? 28;
-                        final startStr = DateFormat('MMM d, yyyy').format(cycle.startDate);
-                        
+                        final startStr =
+                            DateFormat('MMM d, yyyy').format(cycle.startDate);
+
                         // If no end date is logged, calculate an approximate based on length
-                        final endStr = cycle.endDate != null 
+                        final endStr = cycle.endDate != null
                             ? DateFormat('MMM d, yyyy').format(cycle.endDate!)
-                            : DateFormat('MMM d, yyyy').format(cycle.startDate.add(Duration(days: length)));
+                            : DateFormat('MMM d, yyyy').format(
+                                cycle.startDate.add(Duration(days: length)));
 
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '$startStr - $endStr',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryLight.withOpacity(0.2),
+                                      color: AppColors.primaryLight
+                                          .withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       '$length Days',
-                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                                      style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12),
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              const Row(
-                                children: [
-                                  Text('Flow: ', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                                  Text('Normal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), // Can be extended to read from logs
                                 ],
                               ),
                             ],
@@ -280,21 +377,18 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                       },
                     ),
                 ],
-                
+
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Exporting Report (PDF)...')),
-                      );
-                    },
-                    icon: const Icon(Icons.download),
-                    label: const Text('Export Report (PDF)'),
+                    onPressed: () => _showReportSummary(context, cycleProvider),
+                    icon: const Icon(Icons.summarize_outlined),
+                    label: const Text('View Report Summary'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
                     ),
                   ),
                 ),
@@ -305,6 +399,77 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
         },
       ),
     );
+  }
+
+  void _showReportSummary(BuildContext context, CycleProvider cycleProvider) {
+    final history = cycleProvider.cycleHistory;
+    final logs = cycleProvider.recentLogs;
+    final latestCycle = history.isEmpty
+        ? 'No cycle recorded'
+        : DateFormat('MMM d, yyyy').format(history.first.startDate);
+    final average = history.isEmpty
+        ? 'Not enough cycle data'
+        : '${cycleProvider.averageCycleLength} days';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Summary'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cycles recorded: ${history.length}'),
+            Text('Recent symptom logs: ${logs.length}'),
+            Text('Average cycle length: $average'),
+            Text('Latest cycle start: $latestCycle'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_SymptomCount> _buildSymptomCounts(List<DailyLog> logs) {
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year, now.month - 6, now.day);
+    final recentLogs = logs.where((log) => !log.date.isBefore(cutoff)).toList();
+
+    return [
+      _SymptomCount(
+        'Flow',
+        recentLogs
+            .where((log) => log.flow.isNotEmpty && log.flow != 'none')
+            .length,
+        Colors.red.shade300,
+      ),
+      _SymptomCount(
+        'Cramps',
+        recentLogs
+            .where((log) => log.cramps.isNotEmpty && log.cramps != 'none')
+            .length,
+        Colors.orange.shade300,
+      ),
+      _SymptomCount(
+        'Mood',
+        recentLogs.where((log) => _isMoodChange(log.mood)).length,
+        Colors.purple.shade300,
+      ),
+      _SymptomCount(
+        'Notes',
+        recentLogs.where((log) => log.notes.trim().isNotEmpty).length,
+        Colors.teal.shade300,
+      ),
+    ];
+  }
+
+  bool _isMoodChange(String mood) {
+    return mood == 'sad' || mood == 'anxious' || mood == 'irritable';
   }
 
   Widget _buildStatCard(String title, String value, String unit) {
@@ -319,10 +484,22 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
         children: [
           Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 24)),
+          Text(value,
+              style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24)),
           Text(unit, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
   }
+}
+
+class _SymptomCount {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _SymptomCount(this.label, this.count, this.color);
 }

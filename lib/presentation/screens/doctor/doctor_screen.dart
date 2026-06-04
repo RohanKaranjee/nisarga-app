@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/models/doctor.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 class DoctorScreen extends StatefulWidget {
@@ -11,114 +13,11 @@ class DoctorScreen extends StatefulWidget {
 
 class _DoctorScreenState extends State<DoctorScreen> {
   String _selectedFilter = 'All';
-
-  final List<Map<String, dynamic>> _allDoctors = const [
-    {
-      "id": "1",
-      "name": "Dr. Sarah Johnson",
-      "specialization": "Gynecologist",
-      "experience": "12 yrs exp",
-      "rating": "4.8",
-      "reviews": "124 reviews",
-      "location": "City Hospital, New Delhi",
-      "fee": "₹800",
-      "availability": "Available Today",
-      "image": "assets/images/doctors/doctor_1.png"
-    },
-    {
-      "id": "2",
-      "name": "Dr. Priya Sharma",
-      "specialization": "PCOS Specialist",
-      "experience": "15 yrs exp",
-      "rating": "4.9",
-      "reviews": "256 reviews",
-      "location": "Women's Clinic, Mumbai",
-      "fee": "₹1000",
-      "availability": "Available Tomorrow",
-      "image": "assets/images/doctors/doctor_2.png"
-    },
-    {
-      "id": "3",
-      "name": "Dr. Kavita Desai",
-      "specialization": "Fertility",
-      "experience": "10 yrs exp",
-      "rating": "4.7",
-      "reviews": "98 reviews",
-      "location": "Care Hospital, Bangalore",
-      "fee": "₹1200",
-      "availability": "Available Today",
-      "image": "assets/images/doctors/doctor_3.png"
-    },
-    {
-      "id": "4",
-      "name": "Dr. Ananya Iyer",
-      "specialization": "Endocrinologist",
-      "experience": "8 yrs exp",
-      "rating": "4.6",
-      "reviews": "150 reviews",
-      "location": "Health Center, Chennai",
-      "fee": "₹900",
-      "availability": "Available Today",
-      "image": "assets/images/doctors/doctor_4.png"
-    },
-    {
-      "id": "5",
-      "name": "Dr. Neha Gupta",
-      "specialization": "Gynecologist",
-      "experience": "20 yrs exp",
-      "rating": "4.9",
-      "reviews": "400 reviews",
-      "location": "Metro Hospital, Pune",
-      "fee": "₹1500",
-      "availability": "Available Next Week",
-      "image": "assets/images/doctors/doctor_5.png"
-    },
-    {
-      "id": "6",
-      "name": "Dr. Ritu Singh",
-      "specialization": "Hormonal Health",
-      "experience": "6 yrs exp",
-      "rating": "4.5",
-      "reviews": "80 reviews",
-      "location": "Wellness Clinic, Hyderabad",
-      "fee": "₹700",
-      "availability": "Available Tomorrow",
-      "image": "assets/images/doctors/doctor_1.png"
-    },
-    {
-      "id": "7",
-      "name": "Dr. Sunita Rao",
-      "specialization": "Reproductive Medicine",
-      "experience": "18 yrs exp",
-      "rating": "4.8",
-      "reviews": "320 reviews",
-      "location": "Care Plus, Kolkata",
-      "fee": "₹1300",
-      "availability": "Available Today",
-      "image": "assets/images/doctors/doctor_2.png"
-    },
-    {
-      "id": "8",
-      "name": "Dr. Fatima Khan",
-      "specialization": "PCOS Specialist",
-      "experience": "14 yrs exp",
-      "rating": "4.7",
-      "reviews": "210 reviews",
-      "location": "City Care, Ahmedabad",
-      "fee": "₹1100",
-      "availability": "Available Today",
-      "image": "assets/images/doctors/doctor_3.png"
-    }
-  ];
+  final FirestoreService _service = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    // Filter the doctors list
-    final filteredDoctors = _selectedFilter == 'All' 
-        ? _allDoctors 
-        : _allDoctors.where((doc) => doc['specialization'].toString().contains(_selectedFilter)).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -142,24 +41,15 @@ class _DoctorScreenState extends State<DoctorScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.filter_list, color: Colors.white),
-                      onPressed: _showSortBottomSheet,
+                      onChanged: (value) {
+                        setState(() => _selectedFilter =
+                            value.trim().isEmpty ? 'All' : value.trim());
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-            
-            // Filters
             SizedBox(
               height: 50,
               child: ListView(
@@ -168,24 +58,43 @@ class _DoctorScreenState extends State<DoctorScreen> {
                 children: [
                   _buildFilterChip('All'),
                   _buildFilterChip('Gynecologist'),
-                  _buildFilterChip('PCOS Specialist'),
+                  _buildFilterChip('PCOS'),
                   _buildFilterChip('Fertility'),
                   _buildFilterChip('Endocrinologist'),
                 ],
               ),
             ),
-            
             Expanded(
-              child: filteredDoctors.isEmpty 
-                  ? const Center(child: Text("No doctors found for this category"))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filteredDoctors.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        return _buildDoctorCard(context, filteredDoctors[index]);
-                      },
-                    ),
+              child: StreamBuilder<List<Doctor>>(
+                stream: _service.watchDoctors(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final doctors = _filterDoctors(snapshot.data ?? []);
+                  if (doctors.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No approved doctors available yet.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: doctors.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      return _buildDoctorCard(context, doctors[index]);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -193,44 +102,14 @@ class _DoctorScreenState extends State<DoctorScreen> {
     );
   }
 
-  void _showSortBottomSheet() {
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(context).padding.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Sort By', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              ListTile(
-                title: const Text('Rating (High to Low)'),
-                trailing: const Icon(Icons.star, color: Colors.amber),
-                onTap: () {
-                  // Implementing sort logic would happen here in state
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text('Consultation Fee (Low to High)'),
-                trailing: const Icon(Icons.currency_rupee, color: Colors.green),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                title: const Text('Experience (High to Low)'),
-                trailing: const Icon(Icons.work_history, color: AppColors.primary),
-                onTap: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      }
-    );
+  List<Doctor> _filterDoctors(List<Doctor> doctors) {
+    if (_selectedFilter == 'All') return doctors;
+    final query = _selectedFilter.toLowerCase();
+    return doctors.where((doctor) {
+      return doctor.name.toLowerCase().contains(query) ||
+          doctor.specialization.toLowerCase().contains(query) ||
+          doctor.location.toLowerCase().contains(query);
+    }).toList();
   }
 
   Widget _buildFilterChip(String label) {
@@ -242,30 +121,28 @@ class _DoctorScreenState extends State<DoctorScreen> {
         selected: isSelected,
         selectedColor: AppColors.primary,
         onSelected: (selected) {
-          if (selected) {
-            setState(() {
-              _selectedFilter = label;
-            });
-          }
+          if (selected) setState(() => _selectedFilter = label);
         },
-        labelStyle: TextStyle(color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color),
+        labelStyle: TextStyle(
+          color: isSelected
+              ? Colors.white
+              : Theme.of(context).textTheme.bodyMedium?.color,
+        ),
       ),
     );
   }
 
-  Widget _buildDoctorCard(BuildContext context, Map<String, dynamic> doc) {
+  Widget _buildDoctorCard(BuildContext context, Doctor doctor) {
     final theme = Theme.of(context);
-    
-    // Determine badge color based on availability
-    Color availabilityColor = Colors.green;
-    if (doc['availability'].contains('Tomorrow')) {
-      availabilityColor = Colors.orange;
-    } else if (doc['availability'].contains('Next Week')) {
-      availabilityColor = Colors.red;
-    }
+    final imageProvider = doctor.photoUrl.isNotEmpty
+        ? NetworkImage(doctor.photoUrl)
+        : doctor.photo.isNotEmpty
+            ? AssetImage(doctor.photo) as ImageProvider
+            : null;
 
     return InkWell(
-      onTap: () => context.push('/doctor/${doc["id"]}'),
+      onTap: () => context.push('/doctor/${doctor.id}'),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -285,77 +162,56 @@ class _DoctorScreenState extends State<DoctorScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Doctor Image Placeholder using a robust fallback mechanism
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                      image: AssetImage(doc['image']),
-                      fit: BoxFit.cover,
-                      onError: (exception, stackTrace) {}, // Fails silently if image doesn't exist
-                    ),
-                  ),
-                  child: const Icon(Icons.person, size: 40, color: Colors.transparent), // Hidden icon, shown if image fails (handled below)
+                CircleAvatar(
+                  radius: 35,
+                  backgroundColor: AppColors.primaryLight.withOpacity(0.2),
+                  backgroundImage: imageProvider,
+                  child: imageProvider == null
+                      ? const Icon(Icons.person,
+                          size: 40, color: AppColors.primary)
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              doc['name'],
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const Icon(Icons.favorite_border, color: AppColors.primary, size: 20),
-                        ],
+                      Text(
+                        doctor.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(doc['specialization'], style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+                      Text(doctor.specialization,
+                          style: const TextStyle(
+                              color: AppColors.primary, fontSize: 12)),
                       const SizedBox(height: 4),
-                      Text(doc['experience'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(doctor.location,
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 12)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(5)),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.star, color: Colors.green, size: 12),
-                                const SizedBox(width: 2),
-                                Text(doc['rating'], style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                          const Icon(Icons.star, color: Colors.green, size: 14),
+                          const SizedBox(width: 2),
+                          Text(
+                            doctor.rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                                color: Colors.green,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 8),
-                          Text(doc['reviews'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          Text('${doctor.experience} yrs exp',
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 12)),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: availabilityColor),
-                ),
-                const SizedBox(width: 6),
-                Text(doc['availability'], style: TextStyle(fontSize: 12, color: availabilityColor)),
               ],
             ),
             const Padding(
@@ -368,22 +224,29 @@ class _DoctorScreenState extends State<DoctorScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Consultation Fee', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    Text(doc['fee'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text('Available Slots',
+                        style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      '${doctor.availability.length}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ],
                 ),
                 Row(
                   children: [
-                    _buildSmallActionBtn(
-                      Icons.chat_bubble_rounded,
-                      Colors.green,
-                      () => context.push('/doctor/chat/${doc["id"]}'),
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_rounded,
+                          color: Colors.green),
+                      onPressed: () =>
+                          context.push('/doctor/chat/${doctor.id}'),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () => context.push('/doctor/${doc["id"]}'),
+                      onPressed: () => context.push('/doctor/${doctor.id}'),
                       style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                       ),
                       child: const Text('Book'),
@@ -394,22 +257,6 @@ class _DoctorScreenState extends State<DoctorScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSmallActionBtn(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Icon(icon, color: color, size: 20),
       ),
     );
   }

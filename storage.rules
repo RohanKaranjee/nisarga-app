@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roleIs(role) {
+      return signedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isAdmin() {
+      return roleIs('admin');
+    }
+
+    match /doctor_photos/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /content/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /user_uploads/{userId}/{fileName} {
+      allow read, write: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+  }
+}

@@ -5,6 +5,7 @@ class Medicine {
   final String dosage;
   final String sideEffects;
   final String notes;
+  final bool active;
 
   Medicine({
     required this.id,
@@ -13,6 +14,7 @@ class Medicine {
     required this.dosage,
     required this.sideEffects,
     required this.notes,
+    this.active = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +25,7 @@ class Medicine {
       'dosage': dosage,
       'sideEffects': sideEffects,
       'notes': notes,
+      'active': active,
     };
   }
 
@@ -34,6 +37,7 @@ class Medicine {
       dosage: map['dosage'] ?? '',
       sideEffects: map['sideEffects'] ?? '',
       notes: map['notes'] ?? '',
+      active: map['active'] ?? true,
     );
   }
 }

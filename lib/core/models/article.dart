@@ -7,6 +7,8 @@ class Article {
   final String excerpt;
   final String date;
   final String content;
+  final String imageUrl;
+  final bool active;
 
   Article({
     required this.id,
@@ -17,6 +19,8 @@ class Article {
     required this.excerpt,
     required this.date,
     this.content = '',
+    this.imageUrl = '',
+    this.active = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +33,8 @@ class Article {
       'excerpt': excerpt,
       'date': date,
       'content': content,
+      'imageUrl': imageUrl,
+      'active': active,
     };
   }
 
@@ -42,6 +48,8 @@ class Article {
       excerpt: map['excerpt'] ?? '',
       date: map['date'] ?? '',
       content: map['content'] ?? '',
+      imageUrl: map['imageUrl'] ?? map['image'] ?? '',
+      active: map['active'] ?? true,
     );
   }
 }

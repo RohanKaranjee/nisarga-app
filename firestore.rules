@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function roleIs(role) {
+      return signedIn() && userDoc(request.auth.uid).data.role == role;
+    }
+
+    function isAdmin() {
+      return roleIs('admin');
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function hasDoctorPatientAccess(patientId, doctorUserId) {
+      return exists(/databases/$(database)/documents/doctor_patient_access/$(doctorUserId)/patients/$(patientId));
+    }
+
+    match /users/{userId} {
+      allow create: if isAdmin()
+        || (isOwner(userId)
+          && request.resource.data.role == 'patient'
+          && request.resource.data.status == 'active')
+        || (isOwner(userId)
+          && request.resource.data.role == 'doctor'
+          && request.resource.data.status == 'pending');
+      allow read: if isOwner(userId)
+        || isAdmin()
+        || (signedIn() && hasDoctorPatientAccess(userId, request.auth.uid));
+      allow update: if isAdmin()
+        || (isOwner(userId)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
+
+      match /daily_logs/{logId} {
+        allow read: if isOwner(userId)
+          || isAdmin()
+          || (signedIn() && hasDoctorPatientAccess(userId, request.auth.uid));
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      match /cycles/{cycleId} {
+        allow read: if isOwner(userId)
+          || isAdmin()
+          || (signedIn() && hasDoctorPatientAccess(userId, request.auth.uid));
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      match /reminders/{reminderId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /notifications/{notificationId} {
+        allow read, update, delete: if isOwner(userId) || isAdmin();
+        allow create: if signedIn();
+      }
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if (resource.data.active == true && resource.data.status == 'approved')
+        || isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin()
+        || (signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.status == 'pending');
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.active == resource.data.active);
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow create: if signedIn()
+        && request.resource.data.patientId == request.auth.uid;
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.patientId == request.auth.uid)
+        || (signedIn() && resource.data.doctorUserId == request.auth.uid);
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.doctorUserId == request.auth.uid
+          && request.resource.data.patientId == resource.data.patientId
+          && request.resource.data.doctorUserId == resource.data.doctorUserId
+          && request.resource.data.doctorId == resource.data.doctorId);
+      allow delete: if isAdmin();
+    }
+
+    match /doctor_patient_access/{doctorUserId}/patients/{patientId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.patientId == request.auth.uid)
+        || (signedIn() && doctorUserId == request.auth.uid);
+      allow create, update: if isAdmin()
+        || (signedIn()
+          && patientId == request.auth.uid
+          && request.resource.data.patientId == patientId)
+        || (signedIn()
+          && doctorUserId == request.auth.uid
+          && request.resource.data.doctorUserId == doctorUserId);
+      allow delete: if isAdmin();
+    }
+
+    match /prescriptions/{prescriptionId} {
+      allow create, update: if isAdmin()
+        || (signedIn()
+          && request.resource.data.doctorUserId == request.auth.uid
+          && hasDoctorPatientAccess(request.resource.data.patientId, request.auth.uid));
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.patientId == request.auth.uid)
+        || (signedIn()
+          && resource.data.doctorUserId == request.auth.uid
+          && hasDoctorPatientAccess(resource.data.patientId, request.auth.uid));
+      allow delete: if isAdmin();
+    }
+
+    match /chats/{chatId} {
+      allow create: if signedIn()
+        && request.resource.data.participants.hasAny([request.auth.uid]);
+      allow read, update: if signedIn()
+        && resource.data.participants.hasAny([request.auth.uid]);
+
+      match /messages/{messageId} {
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+      }
+    }
+
+    match /articles/{id} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /medicines/{id} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /products/{id} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /home_remedies/{id} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /exercises/{id} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /feedback/{id} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /settings/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /broadcasts/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

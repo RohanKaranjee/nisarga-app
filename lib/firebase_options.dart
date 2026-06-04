@@ -64,7 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '446918210823',
     projectId: 'nisarga-app-main',
     storageBucket: 'nisarga-app-main.firebasestorage.app',
-    iosClientId: '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
+    iosClientId:
+        '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
     iosBundleId: 'com.example.nisarga',
   );
 
@@ -74,7 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '446918210823',
     projectId: 'nisarga-app-main',
     storageBucket: 'nisarga-app-main.firebasestorage.app',
-    iosClientId: '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
+    iosClientId:
+        '446918210823-p12lul8k28v5u298u938kja9ogus5ldg.apps.googleusercontent.com',
     iosBundleId: 'com.example.nisarga',
   );
 
@@ -87,5 +89,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'nisarga-app-main.firebasestorage.app',
     measurementId: 'G-VD5ZPF5QF4',
   );
-
 }

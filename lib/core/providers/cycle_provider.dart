@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
@@ -9,12 +11,14 @@ import '../services/firestore_service.dart';
 /// computed properties like current cycle day and days until next period.
 class CycleProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
-  
+
   CycleData? _currentCycle;
   List<CycleData> _cycleHistory = [];
   List<DailyLog> _recentLogs = [];
   DailyLog? _todaysLog;
   bool _isLoading = false;
+  StreamSubscription<List<CycleData>>? _cyclesSubscription;
+  StreamSubscription<List<DailyLog>>? _logsSubscription;
 
   CycleData? get currentCycle => _currentCycle;
   List<CycleData> get cycleHistory => _cycleHistory;
@@ -47,20 +51,25 @@ class CycleProvider extends ChangeNotifier {
   /// Calculates the average cycle length from history.
   int get averageCycleLength {
     if (_cycleHistory.isEmpty) return 28;
-    final total = _cycleHistory.fold(0, (sum, cycle) => sum + (cycle.cycleLength ?? 28));
+    final total =
+        _cycleHistory.fold(0, (sum, cycle) => sum + (cycle.cycleLength ?? 28));
     return (total / _cycleHistory.length).round();
   }
 
   /// Calculates the shortest cycle length from history.
   int get shortestCycleLength {
     if (_cycleHistory.isEmpty) return 28;
-    return _cycleHistory.map((c) => c.cycleLength ?? 28).reduce((a, b) => a < b ? a : b);
+    return _cycleHistory
+        .map((c) => c.cycleLength ?? 28)
+        .reduce((a, b) => a < b ? a : b);
   }
 
   /// Calculates the longest cycle length from history.
   int get longestCycleLength {
     if (_cycleHistory.isEmpty) return 28;
-    return _cycleHistory.map((c) => c.cycleLength ?? 28).reduce((a, b) => a > b ? a : b);
+    return _cycleHistory
+        .map((c) => c.cycleLength ?? 28)
+        .reduce((a, b) => a > b ? a : b);
   }
 
   /// Provides a fertility insight string based on cycle day.
@@ -80,20 +89,31 @@ class CycleProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Fetch the most recent cycle record
-      _currentCycle = await _firestoreService.getLatestCycle(userId);
-      
-      // Fetch full cycle history
-      _cycleHistory = await _firestoreService.getAllCycles(userId);
-      
-      // Fetch recent daily logs (last 30 days)
-      _recentLogs = await _firestoreService.getDailyLogs(userId, limit: 30);
-      
-      // Fetch today's specific log
-      _todaysLog = await _firestoreService.getTodayLog(userId);
+      await _cyclesSubscription?.cancel();
+      await _logsSubscription?.cancel();
+
+      _cyclesSubscription =
+          _firestoreService.watchCycles(userId).listen((cycles) {
+        _cycleHistory = cycles;
+        _currentCycle = cycles.isNotEmpty ? cycles.first : null;
+        _isLoading = false;
+        notifyListeners();
+      });
+
+      _logsSubscription =
+          _firestoreService.watchDailyLogs(userId, limit: 30).listen((logs) {
+        _recentLogs = logs;
+        final today = DateTime.now();
+        _todaysLog = logs.where((log) {
+          return log.date.year == today.year &&
+              log.date.month == today.month &&
+              log.date.day == today.day;
+        }).firstOrNull;
+        _isLoading = false;
+        notifyListeners();
+      });
     } catch (e) {
       debugPrint('Error loading cycle data: $e');
-    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -103,18 +123,19 @@ class CycleProvider extends ChangeNotifier {
   Future<void> saveDailyLog(DailyLog log) async {
     try {
       // Update locally
+      _recentLogs.removeWhere((existing) => existing.id == log.id);
       _recentLogs.insert(0, log);
-      
+
       // If the log is for today, update todaysLog
       final today = DateTime.now();
-      if (log.date.year == today.year && 
-          log.date.month == today.month && 
+      if (log.date.year == today.year &&
+          log.date.month == today.month &&
           log.date.day == today.day) {
         _todaysLog = log;
       }
-      
+
       notifyListeners();
-      
+
       // Save to Firestore
       await _firestoreService.saveDailyLog(log);
     } catch (e) {
@@ -127,7 +148,7 @@ class CycleProvider extends ChangeNotifier {
     try {
       await _firestoreService.saveCycleData(cycle);
       _currentCycle = cycle;
-      
+
       // Update history list locally without full refetch
       final index = _cycleHistory.indexWhere((c) => c.id == cycle.id);
       if (index >= 0) {
@@ -137,10 +158,21 @@ class CycleProvider extends ChangeNotifier {
         // Ensure it's sorted descending by date
         _cycleHistory.sort((a, b) => b.startDate.compareTo(a.startDate));
       }
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('Error saving cycle data: $e');
     }
   }
+
+  @override
+  void dispose() {
+    _cyclesSubscription?.cancel();
+    _logsSubscription?.cancel();
+    super.dispose();
+  }
+}
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }

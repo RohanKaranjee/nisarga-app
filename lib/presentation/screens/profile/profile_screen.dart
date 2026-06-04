@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/models/feedback_entry.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/cycle_provider.dart';
 import '../../../core/providers/reminder_provider.dart';
@@ -40,13 +42,22 @@ class ProfileScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white,
-                      backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-                      child: user?.photoURL == null ? const Icon(Icons.person, size: 60, color: AppColors.primary) : null,
+                      backgroundImage: user?.photoURL != null
+                          ? NetworkImage(user!.photoURL!)
+                          : null,
+                      child: user?.photoURL == null
+                          ? const Icon(Icons.person,
+                              size: 60, color: AppColors.primary)
+                          : null,
                     ),
                     const SizedBox(height: 16),
-                    Text(displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(displayName,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
                     const SizedBox(height: 4),
-                    Text(user?.email ?? '', style: const TextStyle(color: Colors.white70)),
+                    Text(user?.email ?? '',
+                        style: const TextStyle(color: Colors.white70)),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -54,11 +65,12 @@ class ProfileScreen extends StatelessWidget {
                         Consumer<CycleProvider>(
                           builder: (context, cycleProvider, _) => _ProfileStat(
                             label: 'Cycles Logged',
-                            value: cycleProvider.currentCycle != null ? '1' : '0',
+                            value: '${cycleProvider.cycleHistory.length}',
                           ),
                         ),
                         Consumer<ReminderProvider>(
-                          builder: (context, reminderProvider, _) => _ProfileStat(
+                          builder: (context, reminderProvider, _) =>
+                              _ProfileStat(
                             label: 'Active Reminders',
                             value: '${reminderProvider.activeReminders.length}',
                           ),
@@ -92,7 +104,17 @@ class ProfileScreen extends StatelessWidget {
                       _SettingsTile(
                         icon: Icons.notifications_outlined,
                         title: 'Notifications',
-                        onTap: () => context.push('/reminders'),
+                        onTap: () => context.push('/notifications'),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.event_available_outlined,
+                        title: 'Appointments',
+                        onTap: () => context.push('/appointments'),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.receipt_long_outlined,
+                        title: 'Prescriptions',
+                        onTap: () => context.push('/prescriptions'),
                       ),
                       _SettingsTile(
                         icon: Icons.alarm_outlined,
@@ -105,12 +127,23 @@ class ProfileScreen extends StatelessWidget {
                         trailing: Switch(
                           value: themeProvider.isDarkMode,
                           onChanged: (val) => themeProvider.toggleTheme(),
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                       ),
                     ]),
                     const SizedBox(height: 16),
                     _buildSettingsCard([
+                      _SettingsTile(
+                        icon: Icons.language_outlined,
+                        title: 'Language',
+                        onTap: () =>
+                            _showLanguageSelector(context, authProvider),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.feedback_outlined,
+                        title: 'Feedback',
+                        onTap: () => _showFeedbackForm(context, authProvider),
+                      ),
                       _SettingsTile(
                         icon: Icons.help_outline,
                         title: 'Help & Support',
@@ -127,14 +160,16 @@ class ProfileScreen extends StatelessWidget {
                         textColor: Colors.red,
                         iconColor: Colors.red,
                         onTap: () async {
-                          final auth = Provider.of<AuthProvider>(context, listen: false);
+                          final auth =
+                              Provider.of<AuthProvider>(context, listen: false);
                           await auth.signOut();
                           if (context.mounted) context.go('/login');
                         },
                       ),
                     ]),
                     const SizedBox(height: 32),
-                    const Text('Nisarga v1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    const Text('Nisarga v1.0.0',
+                        style: TextStyle(color: Colors.grey, fontSize: 12)),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -158,25 +193,43 @@ class ProfileScreen extends StatelessWidget {
       ),
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).padding.bottom + 24),
+          padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).padding.bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2))),
               ),
               const SizedBox(height: 20),
-              const Text('Personal Information', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text('Personal Information',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
-              _infoRow(Icons.person, 'First Name', profile?['firstName'] ?? 'Not set'),
-              _infoRow(Icons.person_outline, 'Last Name', profile?['lastName'] ?? 'Not set'),
+              _infoRow(Icons.person, 'First Name',
+                  profile?['firstName'] ?? 'Not set'),
+              _infoRow(Icons.person_outline, 'Last Name',
+                  profile?['lastName'] ?? 'Not set'),
               _infoRow(Icons.email, 'Email', user?.email ?? 'Not set'),
-              _infoRow(Icons.phone, 'Contact', profile?['contact'] ?? 'Not set'),
-              _infoRow(Icons.location_on, 'Address', profile?['address'] ?? 'Not set'),
-              _infoRow(Icons.cake, 'Date of Birth', profile?['dob'] != null && profile!['dob'].toString().isNotEmpty
-                  ? profile['dob'].toString().substring(0, 10)
-                  : 'Not set'),
+              _infoRow(
+                  Icons.phone, 'Contact', profile?['contact'] ?? 'Not set'),
+              _infoRow(Icons.location_on, 'Address',
+                  profile?['address'] ?? 'Not set'),
+              _infoRow(
+                  Icons.cake,
+                  'Date of Birth',
+                  profile?['dob'] != null &&
+                          profile!['dob'].toString().isNotEmpty
+                      ? profile['dob'].toString().substring(0, 10)
+                      : 'Not set'),
               const SizedBox(height: 24),
             ],
           ),
@@ -193,7 +246,7 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: AppColors.primary, size: 20),
@@ -202,8 +255,11 @@ class ProfileScreen extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              Text(label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w500)),
             ],
           ),
         ],
@@ -212,6 +268,10 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _showHealthProfile(BuildContext context) {
+    final cycleProvider = Provider.of<CycleProvider>(context, listen: false);
+    final latestLog = cycleProvider.recentLogs.isEmpty
+        ? null
+        : cycleProvider.recentLogs.first;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -219,25 +279,183 @@ class ProfileScreen extends StatelessWidget {
       ),
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).padding.bottom + 24),
+          padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).padding.bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 20),
-              const Text('Health Profile', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text('Health Profile',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
-              _infoRow(Icons.calendar_today, 'Average Cycle Length', '28 days'),
-              _infoRow(Icons.water_drop, 'Average Period Duration', '5 days'),
-              _infoRow(Icons.mood, 'Common Symptoms', 'Cramps, Bloating'),
-              _infoRow(Icons.monitor_heart, 'Health Conditions', 'None reported'),
+              _infoRow(
+                Icons.calendar_today,
+                'Average Cycle Length',
+                cycleProvider.cycleHistory.isEmpty
+                    ? 'Not recorded'
+                    : '${cycleProvider.averageCycleLength} days',
+              ),
+              _infoRow(
+                Icons.history,
+                'Cycles Logged',
+                '${cycleProvider.cycleHistory.length}',
+              ),
+              _infoRow(
+                Icons.water_drop,
+                'Latest Flow',
+                latestLog == null ? 'Not recorded' : latestLog.flow,
+              ),
+              _infoRow(
+                Icons.bolt,
+                'Latest Cramps',
+                latestLog == null ? 'Not recorded' : latestLog.cramps,
+              ),
+              _infoRow(
+                Icons.mood,
+                'Latest Mood',
+                latestLog == null ? 'Not recorded' : latestLog.mood,
+              ),
               const SizedBox(height: 24),
             ],
           ),
         );
       },
     );
+  }
+
+  void _showLanguageSelector(BuildContext context, AuthProvider authProvider) {
+    final user = authProvider.user;
+    if (user == null) return;
+    final currentLanguage =
+        authProvider.userProfile?['language']?.toString() ?? 'English';
+    const languages = ['English', 'Hindi', 'Marathi', 'Gujarati'];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).padding.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Select Language',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              RadioGroup<String>(
+                groupValue: currentLanguage,
+                onChanged: (value) async {
+                  if (value == null) return;
+                  await FirestoreService().updateUserLanguage(user.uid, value);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: Column(
+                  children: [
+                    for (final language in languages)
+                      RadioListTile<String>(
+                        value: language,
+                        title: Text(language),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFeedbackForm(BuildContext context, AuthProvider authProvider) {
+    final user = authProvider.user;
+    if (user == null) return;
+    final controller = TextEditingController();
+    final profile = authProvider.userProfile ?? {};
+    final displayName =
+        '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom +
+                24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Feedback',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'Tell us what to improve',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final message = controller.text.trim();
+                    if (message.isEmpty) return;
+                    final now = DateTime.now();
+                    await FirestoreService().submitFeedback(FeedbackEntry(
+                      id: '',
+                      userId: user.uid,
+                      name: displayName,
+                      email: user.email ?? '',
+                      message: message,
+                      createdAt: now,
+                      updatedAt: now,
+                    ));
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Feedback submitted.')),
+                      );
+                    }
+                  },
+                  child: const Text('Submit Feedback'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ).whenComplete(controller.dispose);
   }
 
   void _showHelpSupport(BuildContext context) {
@@ -248,37 +466,53 @@ class ProfileScreen extends StatelessWidget {
       ),
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).padding.bottom + 24),
+          padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).padding.bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 20),
-              const Text('Help & Support', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text('Help & Support',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               ListTile(
-                leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+                leading:
+                    const Icon(Icons.email_outlined, color: AppColors.primary),
                 title: const Text('Email Us'),
                 subtitle: const Text('support@nisarga.app'),
                 onTap: () {},
               ),
               ListTile(
-                leading: const Icon(Icons.question_answer_outlined, color: AppColors.primary),
+                leading: const Icon(Icons.question_answer_outlined,
+                    color: AppColors.primary),
                 title: const Text('FAQs'),
                 subtitle: const Text('Frequently asked questions'),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('FAQs coming soon!')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('FAQs coming soon!')));
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.bug_report_outlined, color: AppColors.primary),
+                leading: const Icon(Icons.bug_report_outlined,
+                    color: AppColors.primary),
                 title: const Text('Report a Bug'),
                 subtitle: const Text('Help us improve the app'),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bug report feature coming soon!')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Bug report feature coming soon!')));
                 },
               ),
               const SizedBox(height: 16),
@@ -304,15 +538,28 @@ class ProfileScreen extends StatelessWidget {
           expand: false,
           builder: (context, scrollController) {
             return Padding(
-              padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).padding.bottom + 24),
+              padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 24,
+                  bottom: MediaQuery.of(context).padding.bottom + 24),
               child: ListView(
                 controller: scrollController,
                 children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+                  Center(
+                      child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(2)))),
                   const SizedBox(height: 20),
-                  const Text('Privacy Policy', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const Text('Privacy Policy',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
-                  const Text('Last updated: May 2026\n', style: TextStyle(color: Colors.grey)),
+                  const Text('Last updated: May 2026\n',
+                      style: TextStyle(color: Colors.grey)),
                   const Text(
                     '1. Information We Collect\n\n'
                     'Nisarga collects the following personal information when you create an account:\n'
@@ -353,9 +600,13 @@ class ProfileScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+            border:
+                Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
             boxShadow: [
-              BoxShadow(color: theme.shadowColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
+              BoxShadow(
+                  color: theme.shadowColor.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5)),
             ],
           ),
           child: Column(children: children),
@@ -374,8 +625,13 @@ class _ProfileStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.white70)),
       ],
     );
   }
@@ -404,12 +660,13 @@ class _SettingsTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: (iconColor ?? AppColors.primary).withOpacity(0.1),
+          color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor ?? AppColors.primary, size: 20),
       ),
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: textColor)),
+      title: Text(title,
+          style: TextStyle(fontWeight: FontWeight.w500, color: textColor)),
       trailing: trailing ?? const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
     );

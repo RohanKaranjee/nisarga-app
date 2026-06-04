@@ -1,7 +1,8 @@
 class Reminder {
   final String id;
   final String userId;
-  final String type; // 'period', 'ovulation', 'medicine', 'doctor', 'pad', 'water'
+  final String
+      type; // 'period', 'ovulation', 'medicine', 'doctor', 'pad', 'water'
   final String title;
   final String time; // e.g., '09:00 AM'
   final bool enabled;

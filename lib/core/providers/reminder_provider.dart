@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/reminder.dart';
 import '../services/firestore_service.dart';
@@ -6,12 +8,14 @@ import '../services/notification_service.dart';
 class ReminderProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
-  
+
   List<Reminder> _reminders = [];
   bool _isLoading = false;
+  StreamSubscription<List<Reminder>>? _remindersSubscription;
 
   List<Reminder> get reminders => _reminders;
-  List<Reminder> get activeReminders => _reminders.where((r) => r.enabled).toList();
+  List<Reminder> get activeReminders =>
+      _reminders.where((r) => r.enabled).toList();
   bool get isLoading => _isLoading;
 
   Future<void> loadReminders(String userId) async {
@@ -19,10 +23,15 @@ class ReminderProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _reminders = await _firestoreService.getReminders(userId);
+      await _remindersSubscription?.cancel();
+      _remindersSubscription =
+          _firestoreService.watchReminders(userId).listen((reminders) {
+        _reminders = reminders;
+        _isLoading = false;
+        notifyListeners();
+      });
     } catch (e) {
-      print('Error loading reminders: $e');
-    } finally {
+      debugPrint('Error loading reminders: $e');
       _isLoading = false;
       notifyListeners();
     }
@@ -31,13 +40,15 @@ class ReminderProvider extends ChangeNotifier {
   Future<void> addReminder(Reminder reminder) async {
     try {
       await _firestoreService.saveReminder(reminder);
-      _reminders.add(reminder);
+      if (!_reminders.any((existing) => existing.id == reminder.id)) {
+        _reminders.add(reminder);
+      }
       if (reminder.enabled) {
         await _notificationService.scheduleReminder(reminder);
       }
       notifyListeners();
     } catch (e) {
-      print('Error adding reminder: $e');
+      debugPrint('Error adding reminder: $e');
     }
   }
 
@@ -45,7 +56,7 @@ class ReminderProvider extends ChangeNotifier {
     try {
       final updatedReminder = reminder.copyWith(enabled: enabled);
       await _firestoreService.updateReminder(updatedReminder);
-      
+
       final index = _reminders.indexWhere((r) => r.id == reminder.id);
       if (index != -1) {
         _reminders[index] = updatedReminder;
@@ -56,10 +67,10 @@ class ReminderProvider extends ChangeNotifier {
       } else {
         await _notificationService.cancelReminder(updatedReminder.id);
       }
-      
+
       notifyListeners();
     } catch (e) {
-      print('Error toggling reminder: $e');
+      debugPrint('Error toggling reminder: $e');
     }
   }
 
@@ -70,7 +81,13 @@ class ReminderProvider extends ChangeNotifier {
       _reminders.removeWhere((r) => r.id == reminder.id);
       notifyListeners();
     } catch (e) {
-      print('Error deleting reminder: $e');
+      debugPrint('Error deleting reminder: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _remindersSubscription?.cancel();
+    super.dispose();
   }
 }

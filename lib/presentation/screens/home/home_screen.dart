@@ -4,14 +4,17 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/cycle_provider.dart';
 import '../../../core/providers/reminder_provider.dart';
+import '../../../core/models/article.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/models/cycle_data.dart';
+import '../../../core/models/doctor.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../widgets/daily_log_sheet.dart';
 
 /// The Home Dashboard Screen.
-/// 
+///
 /// This is the primary view users see when they open the app. It provides a summary
-/// of their current menstrual cycle, shortcuts to log daily symptoms, a grid of 
+/// of their current menstrual cycle, shortcuts to log daily symptoms, a grid of
 /// informational content, active reminders, and featured doctors/articles.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -38,49 +41,54 @@ class HomeScreen extends StatelessWidget {
           // 1. Large gradient card showing current cycle day and predictions
           _buildCycleOverviewCard(context),
           const SizedBox(height: 16),
-          
+
           // 2. Small summary of today's logged symptoms (flow, cramps, mood)
           _buildTodaySummary(context),
           const SizedBox(height: 16),
-          
+
           // 3. Button to trigger the bottom sheet for logging new symptoms
           _buildLogTodayButton(context),
           const SizedBox(height: 24),
-          
-          const Text('Dashboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+          const Text('Dashboard',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          
+
           // 4. Grid of quick links (PCOD, PCOS, Remedies, Pads)
           _buildDashboardGrid(context),
           const SizedBox(height: 24),
-          
-          const Text('Smart Reminders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+          const Text('Smart Reminders',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          
+
           // 5. Card summarizing upcoming notifications
           _buildSmartRemindersCard(context),
           const SizedBox(height: 24),
-          
+
           // 6. Horizontally scrolling list of featured doctors
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Featured Doctors', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Featured Doctors',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               TextButton(
-                onPressed: () => context.push('/doctors'), // Navigate to the Doctor list
+                onPressed: () =>
+                    context.push('/doctors'), // Navigate to the Doctor list
                 child: const Text('View All'),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          _buildFeaturedDoctors(context),
+          _buildLiveFeaturedDoctors(context),
           const SizedBox(height: 24),
-          
+
           // 7. Featured article card
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Health Articles', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Health Articles',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => context.push('/articles'),
                 child: const Text('See More'),
@@ -88,7 +96,7 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          _buildFeaturedArticles(context),
+          _buildLiveFeaturedArticles(context),
           const SizedBox(height: 24),
         ],
       ),
@@ -108,7 +116,8 @@ class HomeScreen extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundColor: AppColors.primaryLight.withOpacity(0.3),
-              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              backgroundImage:
+                  user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
               child: user?.photoURL == null
                   ? const Icon(Icons.person, color: AppColors.primary, size: 22)
                   : null,
@@ -120,11 +129,17 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     'Hi $name! 👋',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                        ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     '$greeting ☀️',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
                   ),
                 ],
               ),
@@ -150,7 +165,8 @@ class HomeScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient, // Uses the global pink/lavender gradient
+              gradient: AppColors
+                  .primaryGradient, // Uses the global pink/lavender gradient
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
@@ -165,47 +181,64 @@ class HomeScreen extends StatelessWidget {
                 if (cycleDay > 0)
                   Text(
                     'Day $cycleDay',
-                    style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   )
                 else
                   const Column(
                     children: [
-                      Icon(Icons.add_circle_outline, color: Colors.white, size: 48),
+                      Icon(Icons.add_circle_outline,
+                          color: Colors.white, size: 48),
                       SizedBox(height: 8),
                     ],
                   ),
-              Text(
-                insight,
-                style: const TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    children: [
-                      const Text('Period in', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(
-                        cycleDay > 0 ? '$daysUntil Days' : '— Days',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  Container(width: 1, height: 30, color: Colors.white30), // Vertical Divider
-                  Column(
-                    children: [
-                      const Text('Cycle Length', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(
-                        '$cycleLen Days',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                Text(
+                  insight,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      children: [
+                        const Text('Period in',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(
+                          cycleDay > 0 ? '$daysUntil Days' : '— Days',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    Container(
+                        width: 1,
+                        height: 30,
+                        color: Colors.white30), // Vertical Divider
+                    Column(
+                      children: [
+                        const Text('Cycle Length',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(
+                          '$cycleLen Days',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
         );
       },
     );
@@ -220,8 +253,10 @@ class HomeScreen extends StatelessWidget {
           // Display the bottom sheet for logging symptoms
           showModalBottomSheet(
             context: context,
-            isScrollControlled: true, // Allows the sheet to take up more than half the screen if needed
-            backgroundColor: Colors.transparent, // Background handled by the widget itself
+            isScrollControlled:
+                true, // Allows the sheet to take up more than half the screen if needed
+            backgroundColor:
+                Colors.transparent, // Background handled by the widget itself
             builder: (context) => const DailyLogSheet(),
           );
         },
@@ -266,11 +301,14 @@ class HomeScreen extends StatelessWidget {
         // Show real logged data
         return Row(
           children: [
-            _summaryCard('Flow', _capitalize(log.flow), Icons.water_drop, Colors.red[300]!),
+            _summaryCard('Flow', _capitalize(log.flow), Icons.water_drop,
+                Colors.red[300]!),
             const SizedBox(width: 8),
-            _summaryCard('Cramps', _capitalize(log.cramps), Icons.bolt, Colors.orange[300]!),
+            _summaryCard('Cramps', _capitalize(log.cramps), Icons.bolt,
+                Colors.orange[300]!),
             const SizedBox(width: 8),
-            _summaryCard('Mood', _capitalize(log.mood), Icons.mood, Colors.blue[300]!),
+            _summaryCard(
+                'Mood', _capitalize(log.mood), Icons.mood, Colors.blue[300]!),
           ],
         );
       },
@@ -297,8 +335,10 @@ class HomeScreen extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(height: 4),
-            Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+            Text(title,
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(value,
+                style: TextStyle(fontWeight: FontWeight.bold, color: color)),
           ],
         ),
       ),
@@ -310,21 +350,27 @@ class HomeScreen extends StatelessWidget {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true, // Essential for GridView inside a SingleChildScrollView
-      physics: const NeverScrollableScrollPhysics(), // Disables internal scrolling
+      physics:
+          const NeverScrollableScrollPhysics(), // Disables internal scrolling
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       childAspectRatio: 1.1,
       children: [
-        _dashboardCard(context, 'PCOD Info', Icons.info_outline, '/pcod', AppColors.primary),
-        _dashboardCard(context, 'PCOS Info', Icons.medical_information_outlined, '/pcos', Colors.teal),
-        _dashboardCard(context, 'Home Remedies', Icons.spa_outlined, '/home-remedies', Colors.green),
-        _dashboardCard(context, 'Health Articles', Icons.article_outlined, '/articles', Colors.deepPurple),
+        _dashboardCard(context, 'PCOD Info', Icons.info_outline, '/pcod',
+            AppColors.primary),
+        _dashboardCard(context, 'PCOS Info', Icons.medical_information_outlined,
+            '/pcos', Colors.teal),
+        _dashboardCard(context, 'Home Remedies', Icons.spa_outlined,
+            '/home-remedies', Colors.green),
+        _dashboardCard(context, 'Health Articles', Icons.article_outlined,
+            '/articles', Colors.deepPurple),
       ],
     );
   }
 
   /// Helper method to create a clickable tile for the dashboard grid.
-  Widget _dashboardCard(BuildContext context, String title, IconData icon, String route, Color color) {
+  Widget _dashboardCard(BuildContext context, String title, IconData icon,
+      String route, Color color) {
     final theme = Theme.of(context);
     return InkWell(
       onTap: () => context.push(route),
@@ -388,7 +434,8 @@ class HomeScreen extends StatelessWidget {
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.notifications_active, color: AppColors.primary),
+                  child: const Icon(Icons.notifications_active,
+                      color: AppColors.primary),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -396,12 +443,18 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        activeCount > 0 ? '$activeCount Active Reminder${activeCount > 1 ? 's' : ''}' : 'No Active Reminders',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        activeCount > 0
+                            ? '$activeCount Active Reminder${activeCount > 1 ? 's' : ''}'
+                            : 'No Active Reminders',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
-                        nextReminder != null ? 'Next: $nextReminder' : 'Tap to set up reminders',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        nextReminder != null
+                            ? 'Next: $nextReminder'
+                            : 'Tap to set up reminders',
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
                   ),
@@ -415,61 +468,84 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedDoctors(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _doctorCard(context, 'Dr. Sarah Johnson', 'Gynecologist', '4.8', '12 yrs', 'assets/images/doctors/doctor_1.png', '1'),
-          const SizedBox(width: 16),
-          _doctorCard(context, 'Dr. Priya Sharma', 'PCOS Specialist', '4.9', '15 yrs', 'assets/images/doctors/doctor_2.png', '2'),
-          const SizedBox(width: 16),
-          _doctorCard(context, 'Dr. Kavita Desai', 'Fertility', '4.7', '10 yrs', 'assets/images/doctors/doctor_3.png', '3'),
-        ],
-      ),
+  Widget _buildLiveFeaturedDoctors(BuildContext context) {
+    return StreamBuilder<List<Doctor>>(
+      stream: FirestoreService().watchDoctors(),
+      builder: (context, snapshot) {
+        final doctors = (snapshot.data ?? []).take(5).toList();
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 90,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (doctors.isEmpty) {
+          return const Text('No approved doctors available yet.',
+              style: TextStyle(color: Colors.grey));
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final doctor in doctors) ...[
+                _liveDoctorCard(context, doctor),
+                const SizedBox(width: 16),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _doctorCard(BuildContext context, String name, String spec, String rating, String exp, String imagePath, String id) {
+  Widget _liveDoctorCard(BuildContext context, Doctor doctor) {
+    final imageProvider = doctor.photoUrl.isNotEmpty
+        ? NetworkImage(doctor.photoUrl)
+        : doctor.photo.isNotEmpty
+            ? AssetImage(doctor.photo) as ImageProvider
+            : null;
+
     return InkWell(
-      onTap: () => context.push('/doctor/$id'), 
+      onTap: () => context.push('/doctor/${doctor.id}'),
       child: Container(
         width: 250,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+          border: Border.all(
+              color: Theme.of(context).dividerColor.withOpacity(0.2)),
         ),
         child: Row(
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withOpacity(0.2),
-                shape: BoxShape.circle,
-                image: DecorationImage(
-                  image: AssetImage(imagePath),
-                  fit: BoxFit.cover,
-                  onError: (e, s) {}, 
-                ),
-              ),
-              child: const Icon(Icons.person, color: Colors.transparent),
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: AppColors.primaryLight.withOpacity(0.2),
+              backgroundImage: imageProvider,
+              child: imageProvider == null
+                  ? const Icon(Icons.person, color: AppColors.primary)
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(spec, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(doctor.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(doctor.specialization,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       const Icon(Icons.star, color: Colors.amber, size: 14),
-                      Text(' $rating', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      Text(' • $exp', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(' ${doctor.rating.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(' - ${doctor.experience} yrs',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ],
@@ -481,48 +557,49 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedArticles(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _articleCard(
-            context,
-            'Understanding Menstrual Health: A Complete Guide',
-            'Learn everything about menstrual cycles...',
-            'assets/images/articles/article_menstrual.png',
+  Widget _buildLiveFeaturedArticles(BuildContext context) {
+    return StreamBuilder<List<Article>>(
+      stream: FirestoreService().watchArticles(),
+      builder: (context, snapshot) {
+        final articles = (snapshot.data ?? []).take(5).toList();
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 160,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (articles.isEmpty) {
+          return const Text('No articles published yet.',
+              style: TextStyle(color: Colors.grey));
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final article in articles) ...[
+                _liveArticleCard(context, article),
+                const SizedBox(width: 16),
+              ],
+            ],
           ),
-          const SizedBox(width: 16),
-          _articleCard(
-            context,
-            'Managing PCOS Symptoms Naturally',
-            'Diet and lifestyle changes to help manage PCOS.',
-            'assets/images/articles/article_yoga.png',
-          ),
-          const SizedBox(width: 16),
-          _articleCard(
-            context,
-            'Nutrition for a Healthy Cycle',
-            'What to eat during different phases of your cycle.',
-            'assets/images/articles/article_nutrition.png',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _articleCard(BuildContext context, String title, String excerpt, String imagePath) {
+  Widget _liveArticleCard(BuildContext context, Article article) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: () {
         context.push('/article-detail', extra: {
-          'title': title,
-          'author': 'Nisarga Team',
-          'readTime': '5 min read',
-          'category': 'Health',
-          'imagePath': imagePath,
+          'title': article.title,
+          'author': article.author,
+          'readTime': article.readTime,
+          'category': article.category,
+          'imagePath': article.imageUrl,
+          'content': article.content,
         });
       },
       child: Container(
@@ -545,12 +622,16 @@ class HomeScreen extends StatelessWidget {
               Container(
                 width: double.infinity,
                 height: double.infinity,
-                color: isDark ? const Color(0xFF3B284A) : const Color(0xFFF3E5F9),
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
-                ),
+                color:
+                    isDark ? const Color(0xFF3B284A) : const Color(0xFFF3E5F9),
+                child: article.imageUrl.isEmpty
+                    ? const SizedBox()
+                    : Image.network(
+                        article.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox(),
+                      ),
               ),
               Container(
                 decoration: BoxDecoration(
@@ -569,24 +650,30 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text('Featured', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      child: const Text('Featured',
+                          style: TextStyle(color: Colors.white, fontSize: 10)),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      article.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      excerpt,
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      article.excerpt,
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.white70),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -600,7 +687,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _selectCycleStartDate(BuildContext context, CycleProvider cycleProvider) async {
+  Future<void> _selectCycleStartDate(
+      BuildContext context, CycleProvider cycleProvider) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.uid;
     if (userId == null) return;
@@ -608,15 +696,14 @@ class HomeScreen extends StatelessWidget {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 60)), // Allow up to 60 days in past
+      firstDate: DateTime.now()
+          .subtract(const Duration(days: 60)), // Allow up to 60 days in past
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
             ),
           ),
           child: child!,
@@ -631,94 +718,15 @@ class HomeScreen extends StatelessWidget {
         startDate: picked,
         cycleLength: 28, // Default
       );
-      
+
       // We check if widget is still mounted before showing snackbar
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Saving cycle data...')),
         );
       }
-      
+
       await cycleProvider.saveCycleData(newCycle);
     }
-  }
-
-  Widget _buildShopPadsSection(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _padProductCard(context, 'Organic Cotton Pads', '₹299', '4.8', Icons.eco, Colors.green),
-              const SizedBox(width: 12),
-              _padProductCard(context, 'Menstrual Cup', '₹599', '4.9', Icons.local_drink, Colors.teal),
-              const SizedBox(width: 12),
-              _padProductCard(context, 'Maxi Flow Pads', '₹199', '4.5', Icons.water_drop, Colors.blue),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => context.push('/pads'),
-            icon: const Icon(Icons.shopping_bag_outlined),
-            label: const Text('View All Products'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _padProductCard(BuildContext context, String name, String price, String rating, IconData icon, Color color) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: () => context.push('/pads'),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
-          boxShadow: [
-            BoxShadow(color: theme.shadowColor.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(height: 10),
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(price, style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
-                const Spacer(),
-                const Icon(Icons.star, color: Colors.amber, size: 14),
-                Text(' $rating', style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

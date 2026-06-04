@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// The Onboarding Flow shown to users the very first time they install the app.
-/// 
-/// Consists of a [PageView] that swipes horizontally through different 
+///
+/// Consists of a [PageView] that swipes horizontally through different
 /// feature highlights of the application.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,7 +17,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   // Controller to handle swiping between pages
   final PageController _pageController = PageController();
-  
+
   // State to track which dot to highlight at the bottom
   int _currentPage = 0;
 
@@ -25,18 +25,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, String>> _onboardingData = [
     {
       "title": "Welcome to Nisarga",
-      "description": "Your comprehensive companion for menstrual health, cycle tracking, and PCOS/PCOD management.",
-      "image": "assets/images/onboarding1.png" // UI uses a placeholder icon for now
+      "description":
+          "Your comprehensive companion for menstrual health, cycle tracking, and PCOS/PCOD management.",
     },
     {
       "title": "Track with Precision",
-      "description": "Log your daily symptoms, bleeding flow, and moods to get accurate predictions and insights.",
-      "image": "assets/images/onboarding2.png" 
+      "description":
+          "Log your daily symptoms, bleeding flow, and moods to get accurate predictions and insights.",
     },
     {
       "title": "Expert Guidance",
-      "description": "Access home remedies, read verified health articles, and consult with experienced doctors directly.",
-      "image": "assets/images/onboarding3.png" 
+      "description":
+          "Access home remedies, read verified health articles, and consult with experienced doctors directly.",
     }
   ];
 
@@ -44,7 +44,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
-    
+
     if (mounted) {
       context.go('/login');
     }
@@ -72,7 +72,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Placeholder for image graphic
                         Container(
                           height: 250,
                           width: double.infinity,
@@ -112,10 +111,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
               ),
             ),
-            
+
             // ---------------- BOTTOM CONTROLS ----------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20),
               child: Column(
                 children: [
                   // Page Indicators (Dots)
@@ -127,7 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  
+
                   // Next / Get Started Button
                   SizedBox(
                     width: double.infinity,
@@ -151,13 +151,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                       child: Text(
-                        _currentPage == _onboardingData.length - 1 ? "Get Started" : "Next",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        _currentPage == _onboardingData.length - 1
+                            ? "Get Started"
+                            : "Next",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  
+
                   // Skip Button
                   TextButton(
                     onPressed: _completeOnboarding,

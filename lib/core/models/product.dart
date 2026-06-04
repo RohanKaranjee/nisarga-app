@@ -1,13 +1,16 @@
 class Product {
   final String id;
   final String name;
-  final String category; // 'Regular Pads', 'Organic Pads', 'Tampons', 'Menstrual Cups'
+  final String
+      category; // 'Regular Pads', 'Organic Pads', 'Tampons', 'Menstrual Cups'
   final double rating;
   final int reviews;
   final double price;
   final String description;
   final List<String> features;
   final String buyUrl;
+  final String imageUrl;
+  final bool active;
 
   Product({
     required this.id,
@@ -19,6 +22,8 @@ class Product {
     required this.description,
     required this.features,
     required this.buyUrl,
+    this.imageUrl = '',
+    this.active = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +37,8 @@ class Product {
       'description': description,
       'features': features,
       'buyUrl': buyUrl,
+      'imageUrl': imageUrl,
+      'active': active,
     };
   }
 
@@ -46,6 +53,8 @@ class Product {
       description: map['description'] ?? '',
       features: List<String>.from(map['features'] ?? []),
       buyUrl: map['buyUrl'] ?? '',
+      imageUrl: map['imageUrl'] ?? '',
+      active: map['active'] ?? true,
     );
   }
 }

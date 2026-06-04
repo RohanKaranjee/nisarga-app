@@ -45,10 +45,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
-        height: MediaQuery.of(context).size.height,
+        width: double.infinity,
         decoration: const BoxDecoration(
           gradient: AppColors.primaryGradient,
         ),
@@ -56,6 +57,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -136,9 +138,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: authProvider.isLoading ? null : _handleCompleteProfile,
+                                onPressed: authProvider.isLoading
+                                    ? null
+                                    : _handleCompleteProfile,
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(15),
                                   ),
@@ -149,12 +154,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                                         width: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
                                         ),
                                       )
                                     : const Text(
                                         'Continue',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
                                       ),
                               ),
                             ),

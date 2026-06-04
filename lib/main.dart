@@ -8,6 +8,7 @@ import 'app.dart';
 
 // Import state management providers
 import 'core/providers/auth_provider.dart';
+import 'core/providers/app_notification_provider.dart';
 import 'core/providers/cycle_provider.dart';
 import 'core/providers/reminder_provider.dart';
 import 'core/providers/theme_provider.dart';
@@ -16,7 +17,7 @@ import 'core/providers/theme_provider.dart';
 import 'core/services/notification_service.dart';
 
 /// The main entry point for the Nisarga Flutter application.
-/// 
+///
 /// This function is responsible for:
 /// 1. Initializing the Flutter bindings.
 /// 2. Initializing Firebase (for Auth and Firestore).
@@ -25,7 +26,7 @@ import 'core/services/notification_service.dart';
 void main() async {
   // Ensure that widget bindings are initialized before calling async methods
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase (Requires flutterfire configure - Phase 5)
   // This is wrapped in a try-catch to prevent crashes if Firebase is not yet configured on the dev machine.
   try {
@@ -56,6 +57,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CycleProvider()),
         // Manages user reminders and notifications
         ChangeNotifierProvider(create: (_) => ReminderProvider()),
+        // Manages realtime in-app notifications
+        ChangeNotifierProvider(create: (_) => AppNotificationProvider()),
       ],
       child: const NisargaApp(),
     ),

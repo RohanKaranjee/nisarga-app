@@ -1,165 +1,390 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../core/models/app_notification.dart';
+import '../../../core/models/appointment.dart';
+import '../../../core/models/doctor.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 
-class DoctorDetailScreen extends StatelessWidget {
+class DoctorDetailScreen extends StatefulWidget {
   final String doctorId;
   const DoctorDetailScreen({super.key, required this.doctorId});
 
   @override
+  State<DoctorDetailScreen> createState() => _DoctorDetailScreenState();
+}
+
+class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
+  static const _allowedDays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Saturday',
+  ];
+
+  final FirestoreService _service = FirestoreService();
+  String? _selectedDay;
+  String? _selectedTime;
+  final TextEditingController _notesController = TextEditingController();
+  bool _isBooking = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // In a real app, fetch doctor details by ID. Using dummy data for prototype.
+    return StreamBuilder<Doctor?>(
+      stream: _service.watchDoctor(widget.doctorId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final doctor = snapshot.data;
+        if (doctor == null || doctor.status != 'approved' || !doctor.active) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Doctor')),
+            body: const Center(child: Text('Doctor not available.')),
+          );
+        }
+
+        _ensureSelection(doctor);
+        return _buildDetail(context, doctor);
+      },
+    );
+  }
+
+  void _ensureSelection(Doctor doctor) {
+    final slots = _availableSlots(doctor);
+    if (slots.isEmpty) return;
+    final selectedStillExists = slots.any(
+        (slot) => slot['day'] == _selectedDay && slot['time'] == _selectedTime);
+    if (selectedStillExists) return;
+    _selectedDay = slots.first['day'];
+    _selectedTime = slots.first['time'];
+  }
+
+  Widget _buildDetail(BuildContext context, Doctor doctor) {
+    final imageProvider = doctor.photoUrl.isNotEmpty
+        ? NetworkImage(doctor.photoUrl)
+        : doctor.photo.isNotEmpty
+            ? AssetImage(doctor.photo) as ImageProvider
+            : null;
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 250.0,
+            expandedHeight: 230,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                ),
-                child: const Center(
+                decoration:
+                    const BoxDecoration(gradient: AppColors.primaryGradient),
+                child: Center(
                   child: CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.white24,
-                    child: Icon(Icons.person, size: 80, color: Colors.white),
+                    backgroundImage: imageProvider,
+                    child: imageProvider == null
+                        ? const Icon(Icons.person,
+                            size: 80, color: Colors.white)
+                        : null,
                   ),
                 ),
               ),
             ),
           ),
           SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Dr. Sarah Johnson', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                              SizedBox(height: 4),
-                              Text('Gynecologist, Obstetrician', style: TextStyle(color: AppColors.primary, fontSize: 16)),
-                            ],
-                          ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(doctor.name,
+                                style: const TextStyle(
+                                    fontSize: 24, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(doctor.specialization,
+                                style: const TextStyle(
+                                    color: AppColors.primary, fontSize: 16)),
+                          ],
                         ),
-                        Text('₹800', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStat('Patients', '1000+', Icons.people),
-                        _buildStat('Experience', '12 yrs', Icons.work),
-                        _buildStat('Rating', '4.8', Icons.star),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Contact Action Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildActionButton(
-                          context,
-                          icon: Icons.chat_bubble_rounded,
-                          label: 'Chat',
-                          color: Colors.green,
-                          onTap: () {
-                            context.push('/doctor/chat/$doctorId');
-                          },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildStat(
+                          'Experience', '${doctor.experience} yrs', Icons.work),
+                      _buildStat('Rating', doctor.rating.toStringAsFixed(1),
+                          Icons.star),
+                      _buildStat(
+                          'Reviews', '${doctor.reviews}', Icons.rate_review),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionButton(
+                        icon: Icons.chat_bubble_rounded,
+                        label: 'Chat',
+                        color: Colors.green,
+                        onTap: () => context.push('/doctor/chat/${doctor.id}'),
+                      ),
+                      _buildActionButton(
+                        icon: Icons.phone,
+                        label: 'Call',
+                        color: AppColors.primary,
+                        onTap: () => _sendDoctorRequest(
+                          doctor,
+                          title: 'Voice call request',
+                          bodyAction: 'requested a voice call',
+                          type: 'call_request',
                         ),
-                        _buildActionButton(
-                          context,
-                          icon: Icons.calendar_month_rounded,
-                          label: 'Book Appointment',
-                          color: AppColors.primary,
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Booking appointment... (Demo)')),
-                            );
-                          },
+                      ),
+                      _buildActionButton(
+                        icon: Icons.videocam,
+                        label: 'Video',
+                        color: Colors.deepPurple,
+                        onTap: () => _sendDoctorRequest(
+                          doctor,
+                          title: 'Video call request',
+                          bodyAction: 'requested a video call',
+                          type: 'video_request',
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text('About Doctor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('About Doctor',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(
+                    doctor.about.isEmpty
+                        ? 'No profile details added yet.'
+                        : doctor.about,
+                    style: const TextStyle(color: Colors.grey, height: 1.5),
+                  ),
+                  const SizedBox(height: 20),
+                  if (doctor.clinic.isNotEmpty) ...[
+                    const Text('Clinic',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Dr. Sarah Johnson is a highly experienced Gynecologist with over 12 years of clinical practice. She specializes in women\'s reproductive health, PCOS management, and high-risk pregnancies.',
-                      style: TextStyle(color: Colors.grey, height: 1.5),
+                    Text(doctor.clinic),
+                    const SizedBox(height: 20),
+                  ],
+                  const Text('Availability',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  if (_availableSlots(doctor).isEmpty)
+                    const Text('No slots available right now.')
+                  else ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _days(doctor)
+                          .map((day) => _buildDateButton(day))
+                          .toList(),
                     ),
-                    const SizedBox(height: 24),
-
-                    const Text('Availability', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableSlots(doctor)
+                          .where((slot) => slot['day'] == _selectedDay)
+                          .map((slot) => _buildTimeButton(slot['time'] ?? ''))
+                          .toList(),
+                    ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      height: 80,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildDateCard('Mon', true),
-                          _buildDateCard('Tue', false),
-                          _buildDateCard('Wed', false),
-                          _buildDateCard('Thu', false),
-                        ],
+                    TextField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Symptoms or notes for doctor',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _buildTimeChip('09:00 AM', false),
-                        _buildTimeChip('10:30 AM', true),
-                        _buildTimeChip('11:00 AM', false),
-                        _buildTimeChip('02:00 PM', false),
-                        _buildTimeChip('04:30 PM', false),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
                   ],
-                ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
           ),
         ],
       ),
       bottomNavigationBar: SafeArea(
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, -5))],
-          ),
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment Booking Demo')));
-              context.pop();
-            },
+            onPressed:
+                _availableSlots(doctor).isEmpty ? null : () => _book(doctor),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15)),
             ),
-            child: const Text('Book Appointment - ₹800', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('Book Appointment',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ),
       ),
     );
+  }
+
+  List<String> _days(Doctor doctor) {
+    final days = <String>[];
+    for (final slot in _availableSlots(doctor)) {
+      final day = slot['day'] ?? '';
+      if (day.isNotEmpty && !days.contains(day)) days.add(day);
+    }
+    return days;
+  }
+
+  List<Map<String, String>> _availableSlots(Doctor doctor) {
+    return doctor.availability
+        .where((slot) => _allowedDays.contains(slot['day']))
+        .toList();
+  }
+
+  Widget _buildDateButton(String day) {
+    final selected = _selectedDay == day;
+    final theme = Theme.of(context);
+    return OutlinedButton(
+      onPressed: () {
+        setState(() {
+          _selectedDay = day;
+          _selectedTime = null;
+        });
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: selected ? AppColors.primary : theme.colorScheme.surface,
+        foregroundColor: selected ? Colors.white : theme.textTheme.bodyMedium?.color,
+      ),
+      child: Text(day),
+    );
+  }
+
+  Widget _buildTimeButton(String time) {
+    final selected = _selectedTime == time;
+    return OutlinedButton(
+      onPressed: () => setState(() => _selectedTime = time),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: selected ? AppColors.primary : AppColors.surface,
+        foregroundColor: selected ? Colors.white : Colors.black,
+      ),
+      child: Text(time),
+    );
+  }
+
+  Future<void> _book(Doctor doctor) async {
+    if (_isBooking) return;
+    
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+    if (user == null) return;
+
+    final selectedDay = _selectedDay;
+    var selectedTime = _selectedTime;
+    if (selectedDay == null) return;
+    selectedTime ??= _availableSlots(doctor)
+        .where((slot) => slot['day'] == selectedDay)
+        .map((slot) => slot['time'] ?? '')
+        .firstWhere((time) => time.isNotEmpty, orElse: () => '');
+    if (selectedTime.isEmpty) return;
+
+    setState(() => _isBooking = true);
+
+    try {
+      final profile = auth.userProfile ?? {};
+      final patientName =
+          '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim();
+      final now = DateTime.now();
+      final appointment = Appointment(
+        id: '',
+        patientId: user.uid,
+        patientName:
+            patientName.isEmpty ? (user.email ?? 'Patient') : patientName,
+        doctorId: doctor.id,
+        doctorUserId: doctor.userId,
+        doctorName: doctor.name,
+        day: selectedDay,
+        time: selectedTime,
+        status: 'requested',
+        notes: _notesController.text.trim(),
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await _service.createAppointment(appointment);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Appointment request sent.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to book appointment: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBooking = false);
+    }
+  }
+
+  Future<void> _sendDoctorRequest(
+    Doctor doctor, {
+    required String title,
+    required String bodyAction,
+    required String type,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+    if (user == null || doctor.userId.isEmpty) return;
+
+    final profile = auth.userProfile ?? {};
+    final patientName =
+        '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim();
+    final displayName =
+        patientName.isEmpty ? (user.email ?? 'Patient') : patientName;
+    await _service.createNotification(AppNotification(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: doctor.userId,
+      title: title,
+      body: '$displayName $bodyAction.',
+      type: type,
+      route: '/doctor/chat/${doctor.id}?patientId=${user.uid}',
+      createdAt: DateTime.now(),
+    ));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$title sent.')));
+    }
   }
 
   Widget _buildStat(String label, String value, IconData icon) {
@@ -167,7 +392,9 @@ class DoctorDetailScreen extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.primaryLight.withOpacity(0.2), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.2),
+              shape: BoxShape.circle),
           child: Icon(icon, color: AppColors.primary),
         ),
         const SizedBox(height: 8),
@@ -177,37 +404,12 @@ class DoctorDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDateCard(String day, bool isSelected) {
-    return Container(
-      width: 60,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary : AppColors.surface,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.withOpacity(0.3)),
-      ),
-      child: Center(
-        child: Text(day, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-      ),
-    );
-  }
-
-  Widget _buildTimeChip(String time, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary : AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.withOpacity(0.3)),
-      ),
-      child: Text(
-        time,
-        style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(BuildContext context, {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -215,14 +417,16 @@ class DoctorDetailScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: color.withOpacity(0.3)),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
             child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(height: 8),
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
