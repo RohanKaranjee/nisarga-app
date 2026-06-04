@@ -30,6 +30,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   String? _selectedTime;
   final TextEditingController _notesController = TextEditingController();
   bool _isBooking = false;
+  bool _isRequesting = false;
 
   @override
   void dispose() {
@@ -47,9 +48,26 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Doctor')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load doctor: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
 
         final doctor = snapshot.data;
-        if (doctor == null || doctor.status != 'approved' || !doctor.active) {
+        if (doctor == null ||
+            doctor.status != 'approved' ||
+            !doctor.active ||
+            doctor.userId.trim().isEmpty) {
           return Scaffold(
             appBar: AppBar(title: const Text('Doctor')),
             body: const Center(child: Text('Doctor not available.')),
@@ -78,6 +96,8 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         : doctor.photo.isNotEmpty
             ? AssetImage(doctor.photo) as ImageProvider
             : null;
+    final slots = _availableSlots(doctor);
+    final hasSlots = slots.isNotEmpty;
 
     return Scaffold(
       body: CustomScrollView(
@@ -147,7 +167,19 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                         icon: Icons.chat_bubble_rounded,
                         label: 'Chat',
                         color: Colors.green,
-                        onTap: () => context.push('/doctor/chat/${doctor.id}'),
+                        onTap: () {
+                          if (doctor.userId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Chat is available after this doctor is linked to a login account.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          context.push('/doctor/chat/${doctor.id}');
+                        },
                       ),
                       _buildActionButton(
                         icon: Icons.phone,
@@ -197,8 +229,38 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  if (_availableSlots(doctor).isEmpty)
-                    const Text('No slots available right now.')
+                  if (!hasSlots)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.schedule,
+                                color: AppColors.primary),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Timing will be confirmed by doctor',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'You can still send a free appointment request. No payment is required.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   else ...[
                     Wrap(
                       spacing: 8,
@@ -211,21 +273,22 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _availableSlots(doctor)
+                      children: slots
                           .where((slot) => slot['day'] == _selectedDay)
                           .map((slot) => _buildTimeButton(slot['time'] ?? ''))
                           .toList(),
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: _notesController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Symptoms or notes for doctor',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
                   ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Symptoms or notes for doctor',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -237,15 +300,24 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed:
-                _availableSlots(doctor).isEmpty ? null : () => _book(doctor),
+            onPressed: _isBooking ? null : () => _book(doctor),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15)),
             ),
-            child: const Text('Book Appointment',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: _isBooking
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(hasSlots ? 'Book Appointment' : 'Request Appointment',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ),
       ),
@@ -278,8 +350,10 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         });
       },
       style: OutlinedButton.styleFrom(
-        backgroundColor: selected ? AppColors.primary : theme.colorScheme.surface,
-        foregroundColor: selected ? Colors.white : theme.textTheme.bodyMedium?.color,
+        backgroundColor:
+            selected ? AppColors.primary : theme.colorScheme.surface,
+        foregroundColor:
+            selected ? Colors.white : theme.textTheme.bodyMedium?.color,
       ),
       child: Text(day),
     );
@@ -299,19 +373,38 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
   Future<void> _book(Doctor doctor) async {
     if (_isBooking) return;
-    
+
     final auth = context.read<AuthProvider>();
     final user = auth.user;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to book appointment.')),
+      );
+      return;
+    }
 
-    final selectedDay = _selectedDay;
+    final slots = _availableSlots(doctor);
+    var selectedDay = _selectedDay;
     var selectedTime = _selectedTime;
-    if (selectedDay == null) return;
-    selectedTime ??= _availableSlots(doctor)
+    if (slots.isEmpty) {
+      selectedDay = 'Timing request';
+      selectedTime = 'Doctor will confirm';
+    } else if (selectedDay == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an available day.')),
+      );
+      return;
+    }
+    selectedTime ??= slots
         .where((slot) => slot['day'] == selectedDay)
         .map((slot) => slot['time'] ?? '')
         .firstWhere((time) => time.isNotEmpty, orElse: () => '');
-    if (selectedTime.isEmpty) return;
+    if (selectedTime.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an available time.')),
+      );
+      return;
+    }
 
     setState(() => _isBooking = true);
 
@@ -362,28 +455,48 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     required String bodyAction,
     required String type,
   }) async {
+    if (_isRequesting) return;
     final auth = context.read<AuthProvider>();
     final user = auth.user;
-    if (user == null || doctor.userId.isEmpty) return;
+    if (user == null || doctor.userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Doctor request is not available.')),
+      );
+      return;
+    }
 
-    final profile = auth.userProfile ?? {};
-    final patientName =
-        '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim();
-    final displayName =
-        patientName.isEmpty ? (user.email ?? 'Patient') : patientName;
-    await _service.createNotification(AppNotification(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: doctor.userId,
-      title: title,
-      body: '$displayName $bodyAction.',
-      type: type,
-      route: '/doctor/chat/${doctor.id}?patientId=${user.uid}',
-      createdAt: DateTime.now(),
-    ));
+    setState(() => _isRequesting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final profile = auth.userProfile ?? {};
+      final patientName =
+          '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim();
+      final displayName =
+          patientName.isEmpty ? (user.email ?? 'Patient') : patientName;
+      await _service.createNotification(AppNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: doctor.userId,
+        title: title,
+        body: '$displayName $bodyAction.',
+        type: type,
+        route: '/doctor/chat/${doctor.id}?patientId=${user.uid}',
+        createdAt: DateTime.now(),
+      ));
 
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$title sent.')));
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('$title sent.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Request failed: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRequesting = false);
     }
   }
 
@@ -411,7 +524,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: _isRequesting ? null : onTap,
       child: Column(
         children: [
           Container(

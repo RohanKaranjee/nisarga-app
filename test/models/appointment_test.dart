@@ -84,7 +84,8 @@ void main() {
       expect(updated.time, '01:00 PM'); // Updated
       expect(updated.day, 'Wednesday'); // Unchanged
       expect(updated.createdAt, now); // Unchanged
-      expect(updated.updatedAt.isAfter(now), isTrue); // Should be updated to DateTime.now()
+      expect(updated.updatedAt.isAfter(now),
+          isTrue); // Should be updated to DateTime.now()
     });
   });
 }

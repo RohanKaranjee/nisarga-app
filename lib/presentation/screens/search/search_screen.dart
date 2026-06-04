@@ -205,6 +205,22 @@ class _RealtimeResults extends StatelessWidget {
                           return const Center(
                               child: CircularProgressIndicator());
                         }
+                        final error = doctors.error ??
+                            articles.error ??
+                            remedies.error ??
+                            medicines.error ??
+                            products.error;
+                        if (error != null) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'Unable to load search results: $error',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
                         final results = _buildResults(
                           doctors.data ?? [],
                           articles.data ?? [],

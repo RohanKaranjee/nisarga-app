@@ -4,7 +4,7 @@ import 'package:nisarga_app/core/models/daily_log.dart';
 void main() {
   group('DailyLog Model Tests', () {
     final DateTime testDate = DateTime(2026, 6, 4);
-    
+
     test('toMap() should serialize correctly', () {
       final log = DailyLog(
         id: '2026-06-04',

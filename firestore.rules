@@ -21,12 +21,20 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isBootstrapAdmin(userId) {
+      return isOwner(userId)
+        && request.auth.token.email == 'akshatahadapad19@gmail.com';
+    }
+
     function hasDoctorPatientAccess(patientId, doctorUserId) {
       return exists(/databases/$(database)/documents/doctor_patient_access/$(doctorUserId)/patients/$(patientId));
     }
 
     match /users/{userId} {
       allow create: if isAdmin()
+        || (isBootstrapAdmin(userId)
+          && request.resource.data.role == 'admin'
+          && request.resource.data.status == 'active')
         || (isOwner(userId)
           && request.resource.data.role == 'patient'
           && request.resource.data.status == 'active')
@@ -37,6 +45,9 @@ service cloud.firestore {
         || isAdmin()
         || (signedIn() && hasDoctorPatientAccess(userId, request.auth.uid));
       allow update: if isAdmin()
+        || (isBootstrapAdmin(userId)
+          && request.resource.data.role == 'admin'
+          && request.resource.data.status == 'active')
         || (isOwner(userId)
           && request.resource.data.role == resource.data.role
           && request.resource.data.status == resource.data.status);

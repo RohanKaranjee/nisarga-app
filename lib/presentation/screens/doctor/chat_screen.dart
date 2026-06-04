@@ -19,6 +19,10 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final FirestoreService _service = FirestoreService();
   final TextEditingController _messageController = TextEditingController();
+  String? _preparedChatId;
+  String? _preparedRecipientId;
+  Future<void>? _prepareChatFuture;
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -43,7 +47,34 @@ class _ChatScreenState extends State<ChatScreen> {
     return StreamBuilder<Doctor?>(
       stream: _service.watchDoctor(widget.doctorId),
       builder: (context, doctorSnapshot) {
+        if (doctorSnapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Chat')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load doctor: ${doctorSnapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
         final doctor = doctorSnapshot.data;
+        if (auth.isPatient &&
+            doctorSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: SafeArea(child: Center(child: CircularProgressIndicator())),
+          );
+        }
+        if (auth.isPatient && doctor == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Chat')),
+            body: const Center(child: Text('Doctor not available.')),
+          );
+        }
+
         final patientId = auth.isDoctor ? widget.patientId : user.uid;
         if (auth.isDoctor && (patientId == null || patientId.isEmpty)) {
           return Scaffold(
@@ -55,121 +86,220 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final chatId = _service.directChatId(patientId!, widget.doctorId);
-        final recipientId = auth.isDoctor ? patientId : (doctor?.userId ?? '');
+        final doctorUserId = auth.isDoctor ? user.uid : (doctor?.userId ?? '');
+        final recipientId = auth.isDoctor ? patientId : doctorUserId;
+        if (recipientId.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Chat')),
+            body: const SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Chat is not available because this doctor is not linked to a doctor login account. You can still request an appointment.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
         final recipientRoute = auth.isPatient
             ? '/doctor/chat/${widget.doctorId}?patientId=${user.uid}'
             : '/doctor/chat/${widget.doctorId}';
 
-        return Scaffold(
-          appBar: AppBar(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            title: Row(
-              children: [
-                const CircleAvatar(
-                  backgroundColor: Colors.white24,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        auth.isDoctor
-                            ? 'Patient Chat'
-                            : (doctor?.name ?? 'Doctor'),
-                        style: const TextStyle(fontSize: 16),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Text('Realtime',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.white70)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        return FutureBuilder<void>(
+          future: _prepareChat(
+            chatId,
+            user.uid,
+            recipientId,
+            patientId: patientId,
+            doctorUserId: doctorUserId,
           ),
-          body: Column(
-            children: [
-              Expanded(
-                child: StreamBuilder<List<ChatMessage>>(
-                  stream: _service.watchMessages(chatId),
-                  builder: (context, snapshot) {
-                    final messages = snapshot.data ?? [];
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (messages.isEmpty) {
-                      return const Center(
-                        child: Text('No messages yet. Start the conversation.'),
-                      );
-                    }
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final message = messages[index];
-                        final isMe = message.senderId == user.uid;
-                        return _MessageBubble(message: message, isMe: isMe);
-                      },
-                    );
-                  },
-                ),
-              ),
-              SafeArea(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
+          builder: (context, prepareSnapshot) {
+            if (prepareSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body:
+                    SafeArea(child: Center(child: CircularProgressIndicator())),
+              );
+            }
+            if (prepareSnapshot.hasError) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Chat')),
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Unable to open chat: ${prepareSnapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: InputDecoration(
-                            hintText: 'Type a message...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                ),
+              );
+            }
+
+            return Scaffold(
+              appBar: AppBar(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                title: Row(
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Colors.white24,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            auth.isDoctor
+                                ? 'Patient Chat'
+                                : (doctor?.name ?? 'Doctor'),
+                            style: const TextStyle(fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          onSubmitted: (_) => _sendMessage(chatId, user.uid,
-                              auth.role, recipientId, recipientRoute),
-                        ),
+                          const Text('Realtime',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.white70)),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      CircleAvatar(
-                        backgroundColor: AppColors.primary,
-                        child: IconButton(
-                          icon: const Icon(Icons.send, color: Colors.white),
-                          onPressed: () => _sendMessage(chatId, user.uid,
-                              auth.role, recipientId, recipientRoute),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+              body: Column(
+                children: [
+                  Expanded(
+                    child: StreamBuilder<List<ChatMessage>>(
+                      stream: _service.watchMessages(chatId),
+                      builder: (context, snapshot) {
+                        final messages = snapshot.data ?? [];
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'Unable to load messages: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
+                        if (messages.isEmpty) {
+                          return const Center(
+                            child: Text(
+                                'No messages yet. Start the conversation.'),
+                          );
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            final message = messages[index];
+                            final isMe = message.senderId == user.uid;
+                            return _MessageBubble(message: message, isMe: isMe);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  SafeArea(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, -5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _messageController,
+                              enabled: !_sending,
+                              decoration: InputDecoration(
+                                hintText: 'Type a message...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[100],
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
+                              ),
+                              onSubmitted: (_) => _sendMessage(chatId, user.uid,
+                                  auth.role, recipientId, recipientRoute),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          CircleAvatar(
+                            backgroundColor: AppColors.primary,
+                            child: IconButton(
+                              icon: _sending
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send, color: Colors.white),
+                              onPressed: _sending
+                                  ? null
+                                  : () => _sendMessage(chatId, user.uid,
+                                      auth.role, recipientId, recipientRoute),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
+  }
+
+  Future<void> _prepareChat(
+    String chatId,
+    String senderId,
+    String recipientId, {
+    required String patientId,
+    required String doctorUserId,
+  }) {
+    if (_preparedChatId == chatId &&
+        _preparedRecipientId == recipientId &&
+        _prepareChatFuture != null) {
+      return _prepareChatFuture!;
+    }
+    _preparedChatId = chatId;
+    _preparedRecipientId = recipientId;
+    _prepareChatFuture = _service.ensureChat(
+      chatId: chatId,
+      senderId: senderId,
+      recipientId: recipientId,
+      patientId: patientId,
+      doctorUserId: doctorUserId,
+    );
+    return _prepareChatFuture!;
   }
 
   Future<void> _sendMessage(
@@ -179,17 +309,37 @@ class _ChatScreenState extends State<ChatScreen> {
     String recipientId,
     String recipientRoute,
   ) async {
+    if (_sending) return;
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
     _messageController.clear();
-    await _service.sendMessage(
-      chatId: chatId,
-      senderId: senderId,
-      senderRole: senderRole,
-      recipientId: recipientId,
-      text: text,
-      route: recipientRoute,
-    );
+    setState(() => _sending = true);
+    try {
+      await _service.sendMessage(
+        chatId: chatId,
+        senderId: senderId,
+        senderRole: senderRole,
+        recipientId: recipientId,
+        text: text,
+        route: recipientRoute,
+      );
+    } catch (e) {
+      if (mounted) {
+        _messageController.text = text;
+        _messageController.selection = TextSelection.collapsed(
+          offset: _messageController.text.length,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Message failed: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 }
 
@@ -216,7 +366,9 @@ class _MessageBubble extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isMe ? AppColors.primary : theme.colorScheme.surfaceContainerHighest,
+              color: isMe
+                  ? AppColors.primary
+                  : theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(18).copyWith(
                 bottomRight: isMe ? const Radius.circular(0) : null,
                 bottomLeft: !isMe ? const Radius.circular(0) : null,
@@ -228,14 +380,20 @@ class _MessageBubble extends StatelessWidget {
               children: [
                 Text(
                   message.text,
-                  style: TextStyle(color: isMe ? Colors.white : theme.textTheme.bodyMedium?.color),
+                  style: TextStyle(
+                      color: isMe
+                          ? Colors.white
+                          : theme.textTheme.bodyMedium?.color),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   time,
                   style: TextStyle(
                     fontSize: 10,
-                    color: isMe ? Colors.white70 : theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                    color: isMe
+                        ? Colors.white70
+                        : theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
                   ),
                 ),
               ],

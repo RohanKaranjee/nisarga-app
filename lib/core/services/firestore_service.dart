@@ -260,7 +260,8 @@ class FirestoreService {
       final doctors = snapshot.docs.map((doc) {
         return Doctor.fromMap({...doc.data(), 'id': doc.id});
       }).where((doctor) {
-        if (!doctor.active) return false;
+        if (approvedOnly && !doctor.active) return false;
+        if (approvedOnly && doctor.userId.trim().isEmpty) return false;
         return !approvedOnly || doctor.status == 'approved';
       }).toList();
       doctors.sort((a, b) => a.name.compareTo(b.name));
@@ -304,22 +305,55 @@ class FirestoreService {
     String status, {
     String? doctorUserId,
   }) async {
-    await _db.collection('doctors').doc(doctorId).set({
+    final doctorRef = _db.collection('doctors').doc(doctorId);
+    var resolvedDoctorUserId = doctorUserId?.trim() ?? '';
+    if (resolvedDoctorUserId.isEmpty) {
+      final existing = await doctorRef.get();
+      final data = existing.data() ?? const <String, dynamic>{};
+      resolvedDoctorUserId =
+          (data['userId'] ?? data['doctorUserId'] ?? data['uid'] ?? '')
+              .toString()
+              .trim();
+    }
+
+    final doctorUpdate = <String, dynamic>{
       'status': status,
       'active': status != 'disabled',
       'updatedAt': DateTime.now().toIso8601String(),
-    }, SetOptions(merge: true));
-    if (doctorUserId != null && doctorUserId.isNotEmpty) {
-      await updateUserStatus(doctorUserId, status);
+    };
+    if (resolvedDoctorUserId.isNotEmpty) {
+      doctorUpdate['userId'] = resolvedDoctorUserId;
+    }
+
+    await doctorRef.set(doctorUpdate, SetOptions(merge: true));
+    if (resolvedDoctorUserId.isNotEmpty) {
+      await _db.collection('users').doc(resolvedDoctorUserId).set({
+        'role': 'doctor',
+        'status': _userStatusForDoctorStatus(status),
+        'updatedAt': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
       await createNotification(AppNotification(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: doctorUserId,
+        userId: resolvedDoctorUserId,
         title: 'Doctor account $status',
         body: _doctorStatusMessage(status),
         type: 'doctor_status',
         route: '/doctor-panel',
         createdAt: DateTime.now(),
       ));
+    }
+  }
+
+  String _userStatusForDoctorStatus(String doctorStatus) {
+    switch (doctorStatus) {
+      case 'approved':
+        return 'active';
+      case 'disabled':
+        return 'disabled';
+      case 'rejected':
+        return 'rejected';
+      default:
+        return doctorStatus;
     }
   }
 
@@ -351,6 +385,23 @@ class FirestoreService {
         .where('doctorUserId', isEqualTo: doctorUserId)
         .snapshots()
         .map(_appointmentsFromSnapshot);
+  }
+
+  Stream<List<String>> watchDoctorPatientIds(String doctorUserId) {
+    return _db
+        .collection('doctor_patient_access')
+        .doc(doctorUserId)
+        .collection('patients')
+        .snapshots()
+        .map((snapshot) {
+      final ids = snapshot.docs
+          .map((doc) => (doc.data()['patientId'] ?? doc.id).toString())
+          .where((id) => id.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      ids.sort();
+      return ids;
+    });
   }
 
   Stream<List<Appointment>> watchAllAppointments() {
@@ -391,19 +442,23 @@ class FirestoreService {
   Future<void> _grantDoctorPatientAccess({
     required String doctorUserId,
     required String patientId,
-    required String appointmentId,
+    String appointmentId = '',
   }) async {
+    if (doctorUserId.trim().isEmpty || patientId.trim().isEmpty) return;
+    final data = <String, dynamic>{
+      'doctorUserId': doctorUserId,
+      'patientId': patientId,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (appointmentId.trim().isNotEmpty) {
+      data['appointmentIds'] = FieldValue.arrayUnion([appointmentId]);
+    }
     await _db
         .collection('doctor_patient_access')
         .doc(doctorUserId)
         .collection('patients')
         .doc(patientId)
-        .set({
-      'doctorUserId': doctorUserId,
-      'patientId': patientId,
-      'appointmentIds': FieldValue.arrayUnion([appointmentId]),
-      'updatedAt': DateTime.now().toIso8601String(),
-    }, SetOptions(merge: true));
+        .set(data, SetOptions(merge: true));
   }
 
   Future<void> updateAppointment(Appointment appointment) async {
@@ -441,6 +496,26 @@ class FirestoreService {
 
   String directChatId(String patientId, String doctorId) {
     return '${patientId}_$doctorId';
+  }
+
+  Future<void> ensureChat({
+    required String chatId,
+    required String senderId,
+    required String recipientId,
+    String patientId = '',
+    String doctorUserId = '',
+  }) async {
+    if (senderId.isEmpty || recipientId.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    await _db.collection('chats').doc(chatId).set({
+      'id': chatId,
+      'participants': FieldValue.arrayUnion([senderId, recipientId]),
+      'updatedAt': now,
+    }, SetOptions(merge: true));
+    await _grantDoctorPatientAccess(
+      doctorUserId: doctorUserId,
+      patientId: patientId,
+    );
   }
 
   Stream<List<CycleData>> watchPatientCycles(String patientId) {

@@ -37,8 +37,10 @@ class DoctorPanelScreen extends StatelessWidget {
             ),
           ),
           title: Text('Doctor Panel',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w700)),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
           iconTheme: const IconThemeData(color: Colors.white),
         ),
         body: const SafeArea(
@@ -47,6 +49,35 @@ class DoctorPanelScreen extends StatelessWidget {
               padding: EdgeInsets.all(24),
               child: Text(
                 'Doctor access is required for this panel.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!auth.isActive) {
+      return Scaffold(
+        appBar: AppBar(
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
+          ),
+          title: Text('Doctor Panel',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: const SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Your doctor account is disabled. Please contact admin.',
                 textAlign: TextAlign.center,
               ),
             ),
@@ -64,8 +95,10 @@ class DoctorPanelScreen extends StatelessWidget {
           ),
         ),
         title: Text('Doctor Panel',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white, fontWeight: FontWeight.w700)),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -85,29 +118,41 @@ class DoctorPanelScreen extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+            if (snapshot.hasError) {
+              return _doctorPanelMessage(
+                'Unable to load doctor profile: ${snapshot.error}',
+              );
+            }
 
             if (doctor == null) {
               return _DoctorProfileForm(userId: user.uid);
             }
 
+            if (doctor.status != 'approved' || !doctor.active) {
+              return _DoctorStatusView(doctor: doctor);
+            }
+
             return DefaultTabController(
-              length: 3,
+              length: 4,
               child: Column(
                 children: [
                   _DoctorHeader(doctor: doctor),
                   const TabBar(
+                    isScrollable: true,
                     labelColor: AppColors.primary,
                     tabs: [
-                      Tab(text: 'Patients'),
+                      Tab(text: 'Overview'),
                       Tab(text: 'Appointments'),
+                      Tab(text: 'Patients'),
                       Tab(text: 'Profile'),
                     ],
                   ),
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _PatientsTab(service: service, doctor: doctor),
+                        _OverviewTab(service: service, doctor: doctor),
                         _AppointmentsTab(service: service, doctor: doctor),
+                        _PatientsTab(service: service, doctor: doctor),
                         _ProfileTab(doctor: doctor),
                       ],
                     ),
@@ -118,6 +163,338 @@ class DoctorPanelScreen extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+Widget _doctorPanelMessage(String message) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(message, textAlign: TextAlign.center),
+    ),
+  );
+}
+
+Future<void> _runDoctorAction(
+  BuildContext context,
+  Future<void> Function() action, {
+  required String successMessage,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(successMessage)));
+  } catch (e) {
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Action failed: ${e.toString()}'),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+}
+
+void _showDoctorProfileEditor(BuildContext context, Doctor doctor) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => _DoctorProfileForm(existingDoctor: doctor),
+  );
+}
+
+class _OverviewTab extends StatelessWidget {
+  final FirestoreService service;
+  final Doctor doctor;
+
+  const _OverviewTab({required this.service, required this.doctor});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Appointment>>(
+      stream: service.watchAppointmentsForDoctorUser(doctor.userId),
+      builder: (context, snapshot) {
+        final appointments = snapshot.data ?? const <Appointment>[];
+        final requested = appointments
+            .where((appointment) => appointment.status == 'requested')
+            .length;
+        final accepted = appointments
+            .where((appointment) => appointment.status == 'accepted')
+            .length;
+        final completed = appointments
+            .where((appointment) => appointment.status == 'completed')
+            .length;
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (snapshot.hasError)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(
+                    'Unable to load dashboard: ${snapshot.error}',
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                ),
+              )
+            else if (snapshot.connectionState == ConnectionState.waiting)
+              const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricCard(
+                  label: 'Requests',
+                  value: '$requested',
+                  icon: Icons.inbox_outlined,
+                ),
+                _MetricCard(
+                  label: 'Accepted',
+                  value: '$accepted',
+                  icon: Icons.event_available,
+                ),
+                _MetricCard(
+                  label: 'Completed',
+                  value: '$completed',
+                  icon: Icons.check_circle_outline,
+                ),
+                _MetricCard(
+                  label: 'Slots',
+                  value: '${doctor.availability.length}',
+                  icon: Icons.schedule,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today in Doctor Panel',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      appointments.isEmpty
+                          ? 'No appointment requests yet. When patients book, they appear here in realtime.'
+                          : requested > 0
+                              ? 'You have $requested new appointment request(s). Open Appointments to accept or reschedule.'
+                              : 'No pending requests. Keep your availability updated so patients can book easily.',
+                    ),
+                    if (doctor.availability.isEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        'No fixed availability is set. Patients can still request a free appointment, but you should add timings or reschedule requests.',
+                        style: TextStyle(color: AppColors.warning),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _showDoctorProfileEditor(
+                            context,
+                            doctor,
+                          ),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Edit Availability'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              DefaultTabController.of(context).animateTo(1),
+                          icon: const Icon(Icons.event_note),
+                          label: const Text('Appointments'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: (MediaQuery.sizeOf(context).width - 42) / 2,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppColors.primaryLight.withValues(alpha: 0.2),
+                child: Icon(icon, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(label, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DoctorEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  const _DoctorEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 34,
+              backgroundColor: AppColors.primaryLight.withValues(alpha: 0.2),
+              child: Icon(icon, color: AppColors.primary, size: 34),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: onAction,
+              child: Text(actionLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DoctorStatusView extends StatelessWidget {
+  final Doctor doctor;
+
+  const _DoctorStatusView({required this.doctor});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = switch (doctor.status) {
+      'pending' => 'Waiting for admin approval',
+      'rejected' => 'Doctor profile rejected',
+      'disabled' => 'Doctor profile disabled',
+      _ => 'Doctor profile not approved',
+    };
+    final message = switch (doctor.status) {
+      'pending' =>
+        'Your profile is saved. Admin must approve it before patients, appointments, chat, and prescriptions are available.',
+      'rejected' =>
+        'Admin rejected this profile. Update your details and contact admin for another review.',
+      'disabled' =>
+        'This doctor profile is disabled. Contact admin to reactivate it.',
+      _ => 'Admin approval is required before using doctor panel features.',
+    };
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _DoctorHeader(doctor: doctor),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(message),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _showEditor(context),
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Edit Profile & Availability'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ProfileTab(doctor: doctor),
+      ],
+    );
+  }
+
+  void _showEditor(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _DoctorProfileForm(existingDoctor: doctor),
     );
   }
 }
@@ -138,9 +515,9 @@ class _DoctorHeader extends StatelessWidget {
           Text(
             doctor.name,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
           Text(doctor.specialization,
               style: const TextStyle(color: Colors.white70)),
@@ -168,58 +545,148 @@ class _PatientsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<List<Appointment>>(
       stream: service.watchAppointmentsForDoctorUser(doctor.userId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+      builder: (context, appointmentSnapshot) {
+        if (appointmentSnapshot.connectionState == ConnectionState.waiting &&
+            !appointmentSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final latestByPatient = <String, Appointment>{};
-        for (final appointment in snapshot.data ?? const <Appointment>[]) {
-          final existing = latestByPatient[appointment.patientId];
-          if (existing == null ||
-              appointment.updatedAt.isAfter(existing.updatedAt)) {
-            latestByPatient[appointment.patientId] = appointment;
-          }
+        if (appointmentSnapshot.hasError) {
+          return _doctorPanelMessage(
+            'Unable to load patients: ${appointmentSnapshot.error}',
+          );
         }
-        final patients = latestByPatient.values.toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        final appointments = appointmentSnapshot.data ?? const <Appointment>[];
+        return StreamBuilder<List<String>>(
+          stream: service.watchDoctorPatientIds(doctor.userId),
+          builder: (context, accessSnapshot) {
+            final relationships = _relationships(
+              appointments,
+              accessSnapshot.data ?? const <String>[],
+            );
 
-        if (patients.isEmpty) {
-          return const Center(child: Text('No patients yet.'));
-        }
+            if (accessSnapshot.connectionState == ConnectionState.waiting &&
+                !accessSnapshot.hasData &&
+                relationships.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: patients.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            return _PatientCard(
-              service: service,
-              doctor: doctor,
-              appointment: patients[index],
+            if (relationships.isEmpty) {
+              return _DoctorEmptyState(
+                icon: Icons.groups_outlined,
+                title: 'No patients yet',
+                message:
+                    'Patients will appear here after they send appointment requests or start consultations.',
+                actionLabel: 'Check Appointments',
+                onAction: () => DefaultTabController.of(context).animateTo(1),
+              );
+            }
+
+            final showAccessError = accessSnapshot.hasError;
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: relationships.length + (showAccessError ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                if (showAccessError && index == 0) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Text(
+                        'Some chat relationships could not load: ${accessSnapshot.error}',
+                        style: const TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                  );
+                }
+                final relationship =
+                    relationships[index - (showAccessError ? 1 : 0)];
+                return _PatientCard(
+                  service: service,
+                  doctor: doctor,
+                  relationship: relationship,
+                );
+              },
             );
           },
         );
       },
     );
   }
+
+  List<_PatientRelationship> _relationships(
+    List<Appointment> appointments,
+    List<String> accessPatientIds,
+  ) {
+    final latestByPatient = <String, Appointment>{};
+    for (final appointment in appointments) {
+      final existing = latestByPatient[appointment.patientId];
+      if (existing == null ||
+          appointment.updatedAt.isAfter(existing.updatedAt)) {
+        latestByPatient[appointment.patientId] = appointment;
+      }
+    }
+
+    final patientIds = <String>{
+      ...latestByPatient.keys,
+      ...accessPatientIds.where((id) => id.trim().isNotEmpty),
+    };
+    final relationships = patientIds
+        .map(
+          (patientId) => _PatientRelationship(
+            patientId: patientId,
+            appointment: latestByPatient[patientId],
+          ),
+        )
+        .toList();
+    relationships.sort((a, b) {
+      final aDate = a.appointment?.updatedAt;
+      final bDate = b.appointment?.updatedAt;
+      if (aDate == null && bDate == null) {
+        return a.patientId.compareTo(b.patientId);
+      }
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+    return relationships;
+  }
+}
+
+class _PatientRelationship {
+  final String patientId;
+  final Appointment? appointment;
+
+  const _PatientRelationship({
+    required this.patientId,
+    required this.appointment,
+  });
 }
 
 class _PatientCard extends StatelessWidget {
   final FirestoreService service;
   final Doctor doctor;
-  final Appointment appointment;
+  final _PatientRelationship relationship;
 
   const _PatientCard({
     required this.service,
     required this.doctor,
-    required this.appointment,
+    required this.relationship,
   });
 
   @override
   Widget build(BuildContext context) {
+    final appointment = relationship.appointment;
     return StreamBuilder<AppUser?>(
-      stream: service.watchUser(appointment.patientId),
+      stream: service.watchUser(relationship.patientId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text('Unable to load patient: ${snapshot.error}'),
+            ),
+          );
+        }
         final patient = snapshot.data;
         return Card(
           child: Padding(
@@ -233,20 +700,25 @@ class _PatientCard extends StatelessWidget {
                       child: Text(
                         patient?.displayName.isNotEmpty == true
                             ? patient!.displayName
-                            : appointment.patientName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                            : appointment?.patientName ?? 'Patient',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                       ),
                     ),
-                    Chip(label: Text(appointment.status)),
+                    Chip(label: Text(appointment?.status ?? 'Chat')),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text('Age: ${_ageLabel(patient?.dob)}'),
                 Text(
                     'Contact: ${patient?.contact.isNotEmpty == true ? patient!.contact : 'Not set'}'),
-                Text('Last contact: ${_dateLabel(appointment.updatedAt)}'),
+                Text(
+                  appointment == null
+                      ? 'Relationship: Chat started'
+                      : 'Last contact: ${_dateLabel(appointment.updatedAt)}',
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -267,7 +739,7 @@ class _PatientCard extends StatelessWidget {
                       icon: const Icon(Icons.chat),
                       onPressed: () {
                         context.push(
-                          '/doctor/chat/${appointment.doctorId}?patientId=${appointment.patientId}',
+                          '/doctor/chat/${doctor.id}?patientId=${relationship.patientId}',
                         );
                       },
                       label: const Text('Chat'),
@@ -298,8 +770,20 @@ class _AppointmentsTab extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return _doctorPanelMessage(
+            'Unable to load appointments: ${snapshot.error}',
+          );
+        }
         if (appointments.isEmpty) {
-          return const Center(child: Text('No appointments yet.'));
+          return _DoctorEmptyState(
+            icon: Icons.event_note_outlined,
+            title: 'No appointments yet',
+            message:
+                'Free appointment requests from patients will appear here in realtime. Keep your availability updated.',
+            actionLabel: 'Edit Availability',
+            onAction: () => _showDoctorProfileEditor(context, doctor),
+          );
         }
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -308,6 +792,7 @@ class _AppointmentsTab extends StatelessWidget {
           itemBuilder: (context, index) {
             return _AppointmentCard(
               service: service,
+              doctor: doctor,
               appointment: appointments[index],
             );
           },
@@ -319,9 +804,14 @@ class _AppointmentsTab extends StatelessWidget {
 
 class _AppointmentCard extends StatelessWidget {
   final FirestoreService service;
+  final Doctor doctor;
   final Appointment appointment;
 
-  const _AppointmentCard({required this.service, required this.appointment});
+  const _AppointmentCard({
+    required this.service,
+    required this.doctor,
+    required this.appointment,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -330,56 +820,265 @@ class _AppointmentCard extends StatelessWidget {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      appointment.patientName,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Chip(label: Text(appointment.status)),
+                ],
+              ),
+              Text('${appointment.day} at ${appointment.time}'),
+              if (appointment.notes.isNotEmpty) Text(appointment.notes),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton(
+                    onPressed: appointment.status == 'accepted'
+                        ? null
+                        : () => _updateStatus(context, 'accepted'),
+                    child: const Text('Accept'),
+                  ),
+                  OutlinedButton(
+                    onPressed: appointment.status == 'rescheduled'
+                        ? null
+                        : () => _showRescheduleSheet(context),
+                    child: const Text('Reschedule'),
+                  ),
+                  OutlinedButton(
+                    onPressed: appointment.status == 'completed'
+                        ? null
+                        : () => _updateStatus(context, 'completed'),
+                    child: const Text('Complete'),
+                  ),
+                  TextButton(
+                    onPressed: appointment.status == 'cancelled'
+                        ? null
+                        : () => _updateStatus(context, 'cancelled'),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(BuildContext context, String status) {
+    return _runDoctorAction(
+      context,
+      () => service.updateAppointment(appointment.copyWith(status: status)),
+      successMessage: 'Appointment marked $status.',
+    );
+  }
+
+  Future<void> _showRescheduleSheet(BuildContext context) async {
+    final updatedAppointment = await showModalBottomSheet<Appointment>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _RescheduleAppointmentSheet(
+        doctor: doctor,
+        appointment: appointment,
+      ),
+    );
+    if (updatedAppointment == null || !context.mounted) return;
+    await _runDoctorAction(
+      context,
+      () => service.updateAppointment(updatedAppointment),
+      successMessage:
+          'Appointment rescheduled to ${updatedAppointment.day} at ${updatedAppointment.time}.',
+    );
+  }
+}
+
+class _RescheduleAppointmentSheet extends StatefulWidget {
+  final Doctor doctor;
+  final Appointment appointment;
+
+  const _RescheduleAppointmentSheet({
+    required this.doctor,
+    required this.appointment,
+  });
+
+  @override
+  State<_RescheduleAppointmentSheet> createState() =>
+      _RescheduleAppointmentSheetState();
+}
+
+class _RescheduleAppointmentSheetState
+    extends State<_RescheduleAppointmentSheet> {
+  static const _allowedDays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Saturday',
+  ];
+
+  late String _selectedDay;
+  late final TextEditingController _timeController;
+
+  @override
+  void initState() {
+    super.initState();
+    final days = _days;
+    _selectedDay = days.contains(widget.appointment.day)
+        ? widget.appointment.day
+        : days.first;
+    final currentTime = widget.appointment.time == 'Doctor will confirm'
+        ? ''
+        : widget.appointment.time;
+    _timeController = TextEditingController(text: currentTime);
+  }
+
+  @override
+  void dispose() {
+    _timeController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, String>> get _slots {
+    return widget.doctor.availability
+        .where((slot) =>
+            _allowedDays.contains(slot['day']) &&
+            (slot['time'] ?? '').trim().isNotEmpty)
+        .toList();
+  }
+
+  List<String> get _days {
+    final days = <String>[];
+    for (final slot in _slots) {
+      final day = slot['day'] ?? '';
+      if (day.isNotEmpty && !days.contains(day)) days.add(day);
+    }
+    if (days.isEmpty) days.addAll(_allowedDays);
+    return days;
+  }
+
+  List<String> get _timesForSelectedDay {
+    return _slots
+        .where((slot) => slot['day'] == _selectedDay)
+        .map((slot) => slot['time'] ?? '')
+        .where((time) => time.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final times = _timesForSelectedDay;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: SingleChildScrollView(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    appointment.patientName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            Text(
+              'Reschedule Appointment',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                ),
-                Chip(label: Text(appointment.status)),
-              ],
             ),
-            Text('${appointment.day} at ${appointment.time}'),
-            if (appointment.notes.isNotEmpty) Text(appointment.notes),
+            const SizedBox(height: 6),
+            Text('Patient: ${widget.appointment.patientName}'),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedDay,
+              decoration: const InputDecoration(
+                labelText: 'Day',
+                border: OutlineInputBorder(),
+              ),
+              items: _days
+                  .map((day) => DropdownMenuItem(
+                        value: day,
+                        child: Text(day),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _selectedDay = value;
+                  final dayTimes = _timesForSelectedDay;
+                  if (dayTimes.isNotEmpty) {
+                    _timeController.text = dayTimes.first;
+                  }
+                });
+              },
+            ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton(
-                  onPressed: appointment.status == 'accepted'
-                      ? null
-                      : () => service.updateAppointment(
-                          appointment.copyWith(status: 'accepted')),
-                  child: const Text('Accept'),
-                ),
-                OutlinedButton(
-                  onPressed: () => service.updateAppointment(
-                      appointment.copyWith(status: 'rescheduled')),
-                  child: const Text('Reschedule'),
-                ),
-                OutlinedButton(
-                  onPressed: () => service.updateAppointment(
-                      appointment.copyWith(status: 'completed')),
-                  child: const Text('Complete'),
-                ),
-                TextButton(
-                  onPressed: () => service.updateAppointment(
-                      appointment.copyWith(status: 'cancelled')),
-                  child: const Text('Cancel'),
-                ),
-              ],
+            if (times.isNotEmpty) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final time in times)
+                    ChoiceChip(
+                      label: Text(time),
+                      selected: _timeController.text == time,
+                      onSelected: (_) =>
+                          setState(() => _timeController.text = time),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _timeController,
+              decoration: const InputDecoration(
+                labelText: 'Time',
+                hintText: 'Example: 10:00 AM',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _save,
+                child: const Text('Save New Timing'),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _save() {
+    final time = _timeController.text.trim();
+    if (time.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter appointment time.')),
+      );
+      return;
+    }
+    Navigator.pop(
+      context,
+      widget.appointment.copyWith(
+        status: 'rescheduled',
+        day: _selectedDay,
+        time: time,
       ),
     );
   }
@@ -396,7 +1095,7 @@ class _ProfileTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         ElevatedButton.icon(
-          onPressed: () => _showProfileEditor(context, doctor),
+          onPressed: () => _showDoctorProfileEditor(context, doctor),
           icon: const Icon(Icons.edit),
           label: const Text('Edit Profile & Availability'),
         ),
@@ -411,15 +1110,6 @@ class _ProfileTab extends StatelessWidget {
                 .map((slot) => '${slot['day']} - ${slot['time']}')
                 .join('\n')),
       ],
-    );
-  }
-
-  void _showProfileEditor(BuildContext context, Doctor doctor) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _DoctorProfileForm(existingDoctor: doctor),
     );
   }
 
@@ -443,7 +1133,7 @@ class _ProfileTab extends StatelessWidget {
 class _PatientDetailSheet extends StatelessWidget {
   final AppUser patient;
   final Doctor doctor;
-  final Appointment appointment;
+  final Appointment? appointment;
   final FirestoreService service;
 
   const _PatientDetailSheet({
@@ -468,7 +1158,7 @@ class _PatientDetailSheet extends StatelessWidget {
             const Text('Patient Details',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _section(context,'Personal Information', [
+            _section(context, 'Personal Information', [
               _line('Full Name', patient.displayName),
               _line('Age', _ageLabel(patient.dob)),
               _line('Gender',
@@ -484,10 +1174,15 @@ class _PatientDetailSheet extends StatelessWidget {
                 return StreamBuilder<List<DailyLog>>(
                   stream: service.watchPatientDailyLogs(patient.id),
                   builder: (context, logSnapshot) {
+                    if (cycleSnapshot.hasError || logSnapshot.hasError) {
+                      return _section(context, 'Period Information', [
+                        _line('Status', 'Unable to load period details.'),
+                      ]);
+                    }
                     final cycles = cycleSnapshot.data ?? [];
                     final logs = logSnapshot.data ?? [];
                     final latestCycle = cycles.isEmpty ? null : cycles.first;
-                    return _section(context,'Period Information', [
+                    return _section(context, 'Period Information', [
                       _line(
                         'Last Menstrual Period Date',
                         latestCycle == null
@@ -506,6 +1201,7 @@ class _PatientDetailSheet extends StatelessWidget {
             _PrescriptionForm(
               service: service,
               doctor: doctor,
+              patient: patient,
               appointment: appointment,
             ),
           ],
@@ -523,7 +1219,10 @@ class _PatientDetailSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             ...children,
           ],
@@ -576,11 +1275,13 @@ class _PatientDetailSheet extends StatelessWidget {
 class _PrescriptionForm extends StatefulWidget {
   final FirestoreService service;
   final Doctor doctor;
-  final Appointment appointment;
+  final AppUser patient;
+  final Appointment? appointment;
 
   const _PrescriptionForm({
     required this.service,
     required this.doctor,
+    required this.patient,
     required this.appointment,
   });
 
@@ -615,25 +1316,40 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
 
     setState(() => _saving = true);
     final now = DateTime.now();
-    await widget.service.savePrescription(Prescription(
-      id: '',
-      patientId: widget.appointment.patientId,
-      doctorId: widget.doctor.id,
-      doctorUserId: widget.doctor.userId,
-      doctorName: widget.doctor.name,
-      appointmentId: widget.appointment.id,
-      medicines: medicines,
-      notes: _notesController.text.trim(),
-      createdAt: now,
-      updatedAt: now,
-    ));
-    if (mounted) {
-      setState(() => _saving = false);
-      _medicinesController.clear();
-      _notesController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prescription saved.')),
-      );
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.service.savePrescription(Prescription(
+        id: '',
+        patientId: widget.patient.id,
+        doctorId: widget.doctor.id,
+        doctorUserId: widget.doctor.userId,
+        doctorName: widget.doctor.name,
+        appointmentId: widget.appointment?.id ?? '',
+        medicines: medicines,
+        notes: _notesController.text.trim(),
+        createdAt: now,
+        updatedAt: now,
+      ));
+      if (mounted) {
+        _medicinesController.clear();
+        _notesController.clear();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Prescription saved.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Prescription save failed: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -644,42 +1360,45 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Prescription',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _medicinesController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Medicines, one per line',
-                border: OutlineInputBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Prescription',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _medicinesController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Medicines, one per line',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Additional recommendations',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Additional recommendations',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: Text(_saving ? 'Saving...' : 'Save Prescription'),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? 'Saving...' : 'Save Prescription'),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -711,6 +1430,7 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
   late final TextEditingController _qualificationController;
   late final TextEditingController _aboutController;
   late final TextEditingController _availabilityController;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -747,20 +1467,47 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
   Future<void> _save() async {
     final existing = widget.existingDoctor;
     final userId = existing?.userId ?? widget.userId ?? '';
-    if (userId.isEmpty || _nameController.text.trim().isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final missing = <String>[
+      if (userId.isEmpty) 'User account',
+      if (_nameController.text.trim().isEmpty) 'Name',
+      if (_specializationController.text.trim().isEmpty) 'Specialization',
+      if (_clinicController.text.trim().isEmpty) 'Clinic',
+      if (_locationController.text.trim().isEmpty) 'Location',
+    ];
+    if (missing.isNotEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Fill required fields: ${missing.join(', ')}')),
+      );
+      return;
+    }
 
-    final availability = _availabilityController.text
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.contains('|'))
-        .map((line) {
+    final availability = <Map<String, String>>[];
+    final invalidAvailability = <String>[];
+    for (final rawLine in _availabilityController.text.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      if (!line.contains('|')) {
+        invalidAvailability.add(line);
+        continue;
+      }
       final parts = line.split('|');
-      return {'day': parts.first.trim(), 'time': parts.last.trim()};
-    }).where((slot) {
-      return _allowedDays.contains(slot['day']) &&
-          (slot['time'] ?? '').isNotEmpty;
-    }).toList();
-
+      final day = parts.first.trim();
+      final time = parts.sublist(1).join('|').trim();
+      if (!_allowedDays.contains(day) || time.isEmpty) {
+        invalidAvailability.add(line);
+        continue;
+      }
+      availability.add({'day': day, 'time': time});
+    }
+    if (invalidAvailability.isNotEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Use availability format like Monday|10:00 AM.'),
+        ),
+      );
+      return;
+    }
     final qualifications = _qualificationController.text
         .split('\n')
         .map((line) => line.trim())
@@ -787,12 +1534,25 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
       articles: existing?.articles ?? const [],
     );
 
-    await FirestoreService().saveDoctor(doctor);
-    if (mounted) {
+    setState(() => _saving = true);
+    try {
+      await FirestoreService().saveDoctor(doctor);
+      if (!mounted) return;
+      setState(() => _saving = false);
       if (widget.existingDoctor != null) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Doctor profile saved.')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Doctor profile save failed: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted && _saving) setState(() => _saving = false);
     }
   }
 
@@ -830,15 +1590,15 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
               maxLines: 5,
             ),
             const Text(
-              'Allowed days: Monday, Tuesday, Wednesday, Thursday, Saturday',
+              'Optional. Allowed days: Monday, Tuesday, Wednesday, Thursday, Saturday. If empty, patients can request timing.',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _save,
-                child: const Text('Save Profile'),
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Saving...' : 'Save Profile'),
               ),
             ),
           ],
@@ -867,7 +1627,7 @@ void _showPatientDetails(
   BuildContext context,
   AppUser patient,
   Doctor doctor,
-  Appointment appointment,
+  Appointment? appointment,
   FirestoreService service,
 ) {
   showModalBottomSheet(
@@ -896,6 +1656,3 @@ String _ageLabel(DateTime? dob) {
 String _dateLabel(DateTime date) {
   return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 }
-
-
-

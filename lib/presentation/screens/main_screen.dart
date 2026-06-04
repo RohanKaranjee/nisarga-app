@@ -122,7 +122,8 @@ class _MainScreenState extends State<MainScreen> {
                     color: Colors.white, fontWeight: FontWeight.w700)),
             Text('Cycle Care+',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withOpacity(0.8), letterSpacing: 1.1)),
+                    color: Colors.white.withValues(alpha: 0.8),
+                    letterSpacing: 1.1)),
           ],
         ),
         // A three-dot menu containing quick links to secondary content

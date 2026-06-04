@@ -4,7 +4,7 @@ import 'package:nisarga_app/core/models/app_user.dart';
 void main() {
   group('AppUser Model Tests', () {
     test('displayName should combine firstName and lastName', () {
-      final user = AppUser(
+      const user = AppUser(
         id: '1',
         firstName: 'Jane',
         lastName: 'Doe',
@@ -16,7 +16,7 @@ void main() {
     });
 
     test('displayName should fallback to email if names are empty', () {
-      final user = AppUser(
+      const user = AppUser(
         id: '2',
         firstName: '',
         lastName: '',
@@ -30,7 +30,7 @@ void main() {
     test('toMap() should serialize correctly', () {
       final dob = DateTime(1990, 1, 1);
       final createdAt = DateTime(2026, 1, 1);
-      
+
       final user = AppUser(
         id: 'user123',
         firstName: 'Alice',

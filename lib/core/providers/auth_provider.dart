@@ -9,6 +9,10 @@ import '../services/auth_service.dart';
 ///
 /// Manages user session, profile data from Firestore, and auth operations.
 class AuthProvider extends ChangeNotifier {
+  static const Set<String> _bootstrapAdminEmails = {
+    'akshatahadapad19@gmail.com',
+  };
+
   final AuthService _authService = AuthService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -23,10 +27,6 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool _isProfileLoading = false;
   String? _profileError;
-
-  // Phone Auth State
-  String? _verificationId;
-  bool _isOtpSent = false;
 
   // Getters
   User? get user => _user;
@@ -43,9 +43,6 @@ class AuthProvider extends ChangeNotifier {
   String get accountStatus => _userProfile?['status']?.toString() ?? 'active';
   bool get isActive => accountStatus != 'disabled';
   bool get isEmailVerified => _user?.emailVerified ?? false;
-
-  String? get verificationId => _verificationId;
-  bool get isOtpSent => _isOtpSent;
 
   /// Convenience getter for first name
   String get firstName =>
@@ -115,6 +112,7 @@ class AuthProvider extends ChangeNotifier {
     final names = (user.displayName ?? '').trim().split(' ');
     final firstName = names.isNotEmpty ? names.first : '';
     final lastName = names.length > 1 ? names.skip(1).join(' ') : '';
+    final isBootstrapAdmin = _isBootstrapAdminEmail(user.email);
     final profileData = {
       'id': user.uid,
       'firstName': firstName,
@@ -125,7 +123,7 @@ class AuthProvider extends ChangeNotifier {
       'gender': '',
       'address': '',
       'language': 'English',
-      'role': 'patient',
+      'role': isBootstrapAdmin ? 'admin' : 'patient',
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
     };
@@ -151,11 +149,15 @@ class AuthProvider extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(user.uid).get();
       final data = doc.data();
       if (doc.exists && data != null) {
-        _userProfile = data;
-        return data;
+        final normalizedData = await _normalizeBootstrapAdminProfile(
+          user,
+          Map<String, dynamic>.from(data),
+        );
+        _userProfile = normalizedData;
+        return normalizedData;
       }
 
-      if (createIfMissing) {
+      if (createIfMissing || _isBootstrapAdminEmail(user.email)) {
         return _createDefaultProfile(user);
       }
 
@@ -201,7 +203,8 @@ class AuthProvider extends ChangeNotifier {
 
       // Save full profile to Firestore
       if (user != null) {
-        final isDoctorAccount = role == 'doctor';
+        final normalizedRole = _roleForEmail(email, requestedRole: role);
+        final isDoctorAccount = normalizedRole == 'doctor';
         final profileData = {
           'id': user.uid,
           'firstName': firstName ?? '',
@@ -212,7 +215,7 @@ class AuthProvider extends ChangeNotifier {
           'gender': gender ?? '',
           'dob': dob?.toIso8601String() ?? '',
           'language': 'English',
-          'role': role,
+          'role': normalizedRole,
           'status': isDoctorAccount ? 'pending' : 'active',
           'createdAt': FieldValue.serverTimestamp(),
         };
@@ -336,78 +339,12 @@ class AuthProvider extends ChangeNotifier {
       _userProfile = null;
       _profileError = null;
       _isProfileLoading = false;
-      _verificationId = null;
-      _isOtpSent = false;
     } finally {
       _setLoading(false);
     }
   }
 
-  /// Sends an OTP to the given phone number.
-  Future<void> sendOtp(String phoneNumber) async {
-    _setLoading(true);
-    try {
-      await _authService.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Handle auto-retrieval on Android if needed.
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          _setLoading(false);
-          debugPrint('Verification Failed: ${e.message}');
-          throw e;
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          _verificationId = verificationId;
-          _isOtpSent = true;
-          _setLoading(false);
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-        },
-      );
-    } catch (e) {
-      _setLoading(false);
-      rethrow;
-    }
-  }
-
-  /// Verifies the OTP and signs in the user.
-  /// Returns `true` if the user is completely new and needs to set up their profile.
-  Future<bool> verifyOtp(String smsCode) async {
-    if (_verificationId == null) {
-      throw Exception("Verification ID is null. Request a new OTP.");
-    }
-    _setLoading(true);
-    try {
-      final credential = await _authService.signInWithPhoneCredential(
-          _verificationId!, smsCode);
-
-      // Check if user has a profile in Firestore
-      if (credential.user != null) {
-        final doc = await _firestore
-            .collection('users')
-            .doc(credential.user!.uid)
-            .get();
-        if (!doc.exists) {
-          _userProfile = null;
-          _profileError = null;
-          _isProfileLoading = false;
-          return true;
-        } else {
-          // User exists, load profile
-          _userProfile = doc.data();
-          _profileError = null;
-          _isProfileLoading = false;
-        }
-      }
-      return false; // User is returning
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Complete profile for new users (Phone or Google Login)
+  /// Complete profile for new users from provider-based sign-in.
   Future<void> completeProfile({
     required String firstName,
     required String lastName,
@@ -431,8 +368,13 @@ class AuthProvider extends ChangeNotifier {
           'dob': dob?.toIso8601String() ?? '',
           'gender': _userProfile?['gender'] ?? '',
           'language': _userProfile?['language'] ?? 'English',
-          'role': _userProfile?['role'] ?? 'patient',
-          'status': _userProfile?['status'] ?? 'active',
+          'role': _roleForEmail(
+            _user!.email ?? '',
+            requestedRole: _userProfile?['role']?.toString() ?? 'patient',
+          ),
+          'status': _isBootstrapAdminEmail(_user!.email)
+              ? 'active'
+              : _userProfile?['status'] ?? 'active',
           'createdAt': FieldValue.serverTimestamp(),
         };
 
@@ -450,6 +392,37 @@ class AuthProvider extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+
+  bool _isBootstrapAdminEmail(String? email) {
+    return _bootstrapAdminEmails.contains((email ?? '').trim().toLowerCase());
+  }
+
+  String _roleForEmail(String email, {required String requestedRole}) {
+    return _isBootstrapAdminEmail(email) ? 'admin' : requestedRole;
+  }
+
+  Future<Map<String, dynamic>> _normalizeBootstrapAdminProfile(
+    User user,
+    Map<String, dynamic> data,
+  ) async {
+    if (!_isBootstrapAdminEmail(user.email)) return data;
+    if (data['role'] == 'admin' && data['status'] == 'active') return data;
+
+    final normalizedData = {
+      ...data,
+      'id': user.uid,
+      'email': user.email ?? data['email'] ?? '',
+      'role': 'admin',
+      'status': 'active',
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(normalizedData, SetOptions(merge: true));
+    normalizedData['updatedAt'] = DateTime.now().toIso8601String();
+    return normalizedData;
   }
 
   @override

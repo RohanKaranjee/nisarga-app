@@ -115,7 +115,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.primaryLight.withOpacity(0.3),
+              backgroundColor: AppColors.primaryLight.withValues(alpha: 0.3),
               backgroundImage:
                   user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
               child: user?.photoURL == null
@@ -170,7 +170,7 @@ class HomeScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
+                  color: AppColors.primary.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -280,9 +280,10 @@ class HomeScreen extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryLight.withOpacity(0.1),
+              color: AppColors.primaryLight.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+              border:
+                  Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -327,9 +328,9 @@ class HomeScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -381,12 +382,12 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.1),
+              color: theme.shadowColor.withValues(alpha: 0.1),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
           ],
-          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -394,7 +395,7 @@ class HomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),
@@ -424,14 +425,15 @@ class HomeScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+              border:
+                  Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.notifications_active,
@@ -479,6 +481,12 @@ class HomeScreen extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          return Text(
+            'Unable to load doctors: ${snapshot.error}',
+            style: const TextStyle(color: AppColors.error),
+          );
+        }
         if (doctors.isEmpty) {
           return const Text('No approved doctors available yet.',
               style: TextStyle(color: Colors.grey));
@@ -514,13 +522,13 @@ class HomeScreen extends StatelessWidget {
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-              color: Theme.of(context).dividerColor.withOpacity(0.2)),
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundColor: AppColors.primaryLight.withOpacity(0.2),
+              backgroundColor: AppColors.primaryLight.withValues(alpha: 0.2),
               backgroundImage: imageProvider,
               child: imageProvider == null
                   ? const Icon(Icons.person, color: AppColors.primary)
@@ -609,7 +617,7 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.1),
+              color: theme.shadowColor.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 5),
             )
@@ -638,7 +646,10 @@ class HomeScreen extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8)
+                    ],
                   ),
                 ),
               ),
@@ -703,8 +714,8 @@ class HomeScreen extends StatelessWidget {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.primary,
-            ),
+                  primary: AppColors.primary,
+                ),
           ),
           child: child!,
         );

@@ -10,14 +10,17 @@ class AppNotificationProvider extends ChangeNotifier {
   StreamSubscription<List<AppNotification>>? _subscription;
   List<AppNotification> _notifications = [];
   bool _isLoading = false;
+  String? _error;
 
   List<AppNotification> get notifications => _notifications;
   bool get isLoading => _isLoading;
+  String? get error => _error;
   int get unreadCount =>
       _notifications.where((notification) => !notification.read).length;
 
   Future<void> loadNotifications(String userId) async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
 
     await _subscription?.cancel();
@@ -25,6 +28,11 @@ class AppNotificationProvider extends ChangeNotifier {
         _firestoreService.watchNotifications(userId).listen((notifications) {
       _notifications = notifications;
       _isLoading = false;
+      _error = null;
+      notifyListeners();
+    }, onError: (Object error) {
+      _isLoading = false;
+      _error = error.toString();
       notifyListeners();
     });
   }

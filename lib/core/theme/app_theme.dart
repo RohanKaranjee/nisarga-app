@@ -6,7 +6,8 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme).apply(
+      textTheme:
+          GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme).apply(
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
       ),
@@ -14,7 +15,6 @@ class AppTheme {
         seedColor: AppColors.primary,
         primary: AppColors.primary,
         secondary: AppColors.primaryLight,
-        background: AppColors.background,
         surface: AppColors.surface,
         error: AppColors.error,
         brightness: Brightness.light,
@@ -57,7 +57,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: AppColors.cardBg,
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.05),
+        shadowColor: Colors.black.withValues(alpha: 0.05),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -69,11 +69,11 @@ class AppTheme {
         fillColor: AppColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -89,8 +89,10 @@ class AppTheme {
         unselectedItemColor: Colors.grey.shade400,
         type: BottomNavigationBarType.fixed,
         elevation: 12,
-        selectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
+        selectedLabelStyle:
+            GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle:
+            GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
       ),
     );
   }
@@ -106,7 +108,6 @@ class AppTheme {
         seedColor: AppColors.primary,
         primary: AppColors.primaryLight,
         secondary: AppColors.primary,
-        background: AppColors.darkBackground,
         surface: AppColors.darkSurface,
         error: AppColors.error,
         brightness: Brightness.dark,
@@ -149,7 +150,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: AppColors.darkSurface,
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.2),
+        shadowColor: Colors.black.withValues(alpha: 0.2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -161,11 +162,11 @@ class AppTheme {
         fillColor: AppColors.darkSurface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -181,8 +182,10 @@ class AppTheme {
         unselectedItemColor: Colors.grey.shade600,
         type: BottomNavigationBarType.fixed,
         elevation: 12,
-        selectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
+        selectedLabelStyle:
+            GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle:
+            GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
       ),
     );
   }

@@ -60,7 +60,7 @@ class ArticleDetailScreen extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -79,7 +79,7 @@ class ArticleDetailScreen extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -122,7 +122,7 @@ class ArticleDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: theme.dividerColor.withOpacity(0.3)),
+                  Divider(color: theme.dividerColor.withValues(alpha: 0.3)),
                   const SizedBox(height: 24),
                   content.trim().isNotEmpty
                       ? Text(

@@ -65,7 +65,7 @@ class Doctor {
   factory Doctor.fromMap(Map<String, dynamic> map) {
     return Doctor(
       id: map['id'] ?? '',
-      userId: map['userId'] ?? '',
+      userId: map['userId'] ?? map['doctorUserId'] ?? map['uid'] ?? '',
       name: map['name'] ?? '',
       specialization: map['specialization'] ?? '',
       experience: map['experience']?.toInt() ?? 0,

@@ -71,6 +71,17 @@ class _DoctorScreenState extends State<DoctorScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'Unable to load doctors: ${snapshot.error}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
 
                   final doctors = _filterDoctors(snapshot.data ?? []);
                   if (doctors.isEmpty) {
@@ -78,7 +89,7 @@ class _DoctorScreenState extends State<DoctorScreen> {
                       child: Padding(
                         padding: EdgeInsets.all(24),
                         child: Text(
-                          'No approved doctors available yet.',
+                          'No approved linked doctors available yet.',
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -148,10 +159,10 @@ class _DoctorScreenState extends State<DoctorScreen> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.05),
+              color: theme.shadowColor.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -164,7 +175,8 @@ class _DoctorScreenState extends State<DoctorScreen> {
               children: [
                 CircleAvatar(
                   radius: 35,
-                  backgroundColor: AppColors.primaryLight.withOpacity(0.2),
+                  backgroundColor:
+                      AppColors.primaryLight.withValues(alpha: 0.2),
                   backgroundImage: imageProvider,
                   child: imageProvider == null
                       ? const Icon(Icons.person,
@@ -238,8 +250,19 @@ class _DoctorScreenState extends State<DoctorScreen> {
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_rounded,
                           color: Colors.green),
-                      onPressed: () =>
-                          context.push('/doctor/chat/${doctor.id}'),
+                      onPressed: () {
+                        if (doctor.userId.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Chat is available after this doctor is linked to a login account. Use Book to request appointment.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        context.push('/doctor/chat/${doctor.id}');
+                      },
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(

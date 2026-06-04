@@ -6,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Auth Screens
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
-import '../../presentation/screens/auth/phone_login_screen.dart';
-import '../../presentation/screens/auth/otp_verification_screen.dart';
 import '../../presentation/screens/auth/complete_profile_screen.dart';
 
 // Main Navigation & Onboarding
@@ -64,16 +62,14 @@ class AppRouter {
         // Since doing a Firestore read on every route change is expensive, we typically
         // just let the AuthProvider handle the /complete-profile routing after login.
         // However, to enforce it, we could check here. For now, we will trust the
-        // verifyOtp and signIn flow to route to /complete-profile.
+        // sign-in flow to route to /complete-profile.
       }
 
       // If user is logged in and trying to access auth screens, redirect to home
       if (isLoggedIn &&
           (currentPath == '/onboarding' ||
               currentPath == '/login' ||
-              currentPath == '/register' ||
-              currentPath == '/phone-login' ||
-              currentPath == '/verify-otp')) {
+              currentPath == '/register')) {
         return '/';
       }
 
@@ -99,12 +95,6 @@ class AppRouter {
           builder: (context, state) => RegisterScreen(
                 initialRole: state.uri.queryParameters['role'] ?? 'patient',
               )),
-      GoRoute(
-          path: '/phone-login',
-          builder: (context, state) => const PhoneLoginScreen()),
-      GoRoute(
-          path: '/verify-otp',
-          builder: (context, state) => const OtpVerificationScreen()),
       GoRoute(
           path: '/complete-profile',
           builder: (context, state) => const CompleteProfileScreen()),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -117,7 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+          SnackBar(content: Text(_friendlyAuthError(e))),
         );
       }
     }
@@ -126,15 +127,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final compact = MediaQuery.sizeOf(context).height < 760;
+    final narrow = MediaQuery.sizeOf(context).width < 420;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
           child: SafeArea(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+              padding: EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: compact ? 16.0 : 24.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -146,29 +153,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const Icon(Icons.person_add_alt_1,
-                      size: 60, color: Colors.white),
-                  const SizedBox(height: 16),
+                      size: 56, color: Colors.white),
+                  const SizedBox(height: 14),
                   Text(
-                    _isDoctor ? 'Doctor Registration' : 'User Registration',
+                    _isDoctor ? 'Doctor Sign Up' : 'Patient Sign Up',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 32,
+                    style: TextStyle(
+                      fontSize: compact ? 28 : 32,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'A verification link will be sent to your email',
+                  Text(
+                    _roleDescription,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.white70),
+                    style: const TextStyle(fontSize: 15, color: Colors.white70),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: compact ? 18 : 24),
                   _RoleSelector(
                     selectedRole: _role,
                     onChanged: (role) => setState(() => _role = role),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: compact ? 18 : 24),
                   Card(
                     elevation: 8,
                     shape: RoundedRectangleBorder(
@@ -179,30 +186,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         key: _formKey,
                         child: Column(
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _field(
-                                    _firstNameController,
-                                    _isDoctor
-                                        ? 'Doctor First Name'
-                                        : 'First Name',
-                                    icon: Icons.person_outline,
-                                    validator: _requiredName,
+                            _sectionTitle('Account details'),
+                            narrow
+                                ? Column(
+                                    children: [
+                                      _field(
+                                        _firstNameController,
+                                        'First Name',
+                                        icon: Icons.person_outline,
+                                        validator: _requiredName,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _field(
+                                        _lastNameController,
+                                        'Last Name',
+                                        validator: _requiredName,
+                                      ),
+                                    ],
+                                  )
+                                : Row(
+                                    children: [
+                                      Expanded(
+                                        child: _field(
+                                          _firstNameController,
+                                          'First Name',
+                                          icon: Icons.person_outline,
+                                          validator: _requiredName,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _field(
+                                          _lastNameController,
+                                          'Last Name',
+                                          validator: _requiredName,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _field(
-                                    _lastNameController,
-                                    _isDoctor
-                                        ? 'Doctor Last Name'
-                                        : 'Last Name',
-                                    validator: _requiredName,
-                                  ),
-                                ),
-                              ],
-                            ),
                             const SizedBox(height: 16),
                             _field(
                               _emailController,
@@ -221,6 +242,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 16),
                             if (_isDoctor) ...[
+                              _sectionTitle('Doctor profile'),
                               _field(
                                 _specializationController,
                                 'Specialization',
@@ -244,19 +266,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 16),
                               _field(
                                 _qualificationController,
-                                'Qualification',
+                                'Qualification (optional)',
                                 icon: Icons.school_outlined,
-                                validator: _requiredText,
                               ),
                               const SizedBox(height: 16),
                               _field(
                                 _experienceController,
-                                'Experience in years',
+                                'Experience in years (optional)',
                                 icon: Icons.work_outline,
                                 keyboardType: TextInputType.number,
-                                validator: _numberValidator,
+                                validator: _optionalNumberValidator,
                               ),
                             ] else ...[
+                              _sectionTitle('Patient profile'),
                               _field(
                                 _addressController,
                                 'Address',
@@ -276,8 +298,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 items: const [
                                   DropdownMenuItem(
                                       value: 'Female', child: Text('Female')),
-                                  DropdownMenuItem(
-                                      value: 'Male', child: Text('Male')),
                                   DropdownMenuItem(
                                       value: 'Other', child: Text('Other')),
                                 ],
@@ -309,6 +329,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ],
                             const SizedBox(height: 16),
+                            _sectionTitle('Security'),
                             _passwordField(),
                             const SizedBox(height: 16),
                             _confirmPasswordField(),
@@ -394,6 +415,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Widget _sectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _passwordField() {
     return TextFormField(
       controller: _passwordController,
@@ -458,10 +495,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  String? _numberValidator(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Required';
+  String? _optionalNumberValidator(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
     if (int.tryParse(value.trim()) == null) return 'Enter a number';
     return null;
+  }
+
+  String get _roleDescription {
+    if (_isDoctor) {
+      return 'Create your doctor profile. Admin approval is required before patients can book.';
+    }
+    return 'Create a patient account. A verification link will be sent to your email.';
+  }
+
+  String _friendlyAuthError(Object error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'email-already-in-use':
+          return 'This email already has an account. Log in instead.';
+        case 'invalid-email':
+          return 'Enter a valid email address.';
+        case 'weak-password':
+          return 'Use a stronger password with at least 6 characters.';
+        case 'network-request-failed':
+          return 'Check your internet connection and try again.';
+      }
+    }
+    return 'Registration failed. Please check the details and try again.';
   }
 }
 

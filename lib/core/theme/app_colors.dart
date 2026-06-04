@@ -4,7 +4,8 @@ class AppColors {
   // Primary brand colors (Lavender / Pink theme from React prototype)
   static const Color primary = Color(0xFF9B6FB7);
   static const Color primaryLight = Color(0xFFCE93D8);
-  static const Color primaryDark = Color(0xFF6A1B2E); // Deep maroon from auth screens
+  static const Color primaryDark =
+      Color(0xFF6A1B2E); // Deep maroon from auth screens
 
   // Backgrounds
   static const Color background = Color(0xFFFDEFF4);

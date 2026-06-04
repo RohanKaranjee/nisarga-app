@@ -46,7 +46,7 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
     'anxious',
     'irritable'
   ];
-  
+
   bool _isSaving = false;
 
   @override
@@ -59,7 +59,7 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
   /// Packages the form data into a [DailyLog] model and passes it to the Provider.
   void _saveLog() async {
     if (_isSaving) return;
-    
+
     // Get the real Firebase user ID
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final uid = authProvider.user?.uid;
@@ -179,7 +179,10 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
               // ---------------- FLOW SECTION ----------------
               const SizedBox(height: 10),
               Text('Bleeding Flow',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
@@ -199,7 +202,10 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
               // ---------------- CRAMPS SECTION ----------------
               const SizedBox(height: 10),
               Text('Cramps',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
@@ -219,7 +225,10 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
               // ---------------- MOOD SECTION ----------------
               const SizedBox(height: 20),
               Text('Mood',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
@@ -240,7 +249,10 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
               // ---------------- NOTES SECTION ----------------
               const SizedBox(height: 20),
               Text('Notes',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               TextField(
                 controller: _notesController,
@@ -300,12 +312,12 @@ class _DailyLogSheetState extends State<DailyLogSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveLog,
-                  child: _isSaving 
+                  child: _isSaving
                       ? const SizedBox(
-                          height: 20, 
-                          width: 20, 
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                        )
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
                       : const Text('Save Log'),
                 ),
               ),

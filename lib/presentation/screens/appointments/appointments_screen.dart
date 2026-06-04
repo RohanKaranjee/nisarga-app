@@ -26,6 +26,17 @@ class AppointmentsScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load appointments: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
           if (appointments.isEmpty) {
             return const Center(
               child: Padding(
@@ -68,15 +79,28 @@ class AppointmentsScreen extends StatelessWidget {
                         Text(appointment.notes),
                       ],
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           ElevatedButton.icon(
-                            onPressed: () => context
-                                .push('/doctor/chat/${appointment.doctorId}'),
+                            onPressed: () {
+                              if (appointment.doctorUserId.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Chat is not available for this appointment because the doctor account is not linked.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              context
+                                  .push('/doctor/chat/${appointment.doctorId}');
+                            },
                             icon: const Icon(Icons.chat),
                             label: const Text('Chat'),
                           ),
-                          const SizedBox(width: 8),
                           OutlinedButton(
                             onPressed: () =>
                                 context.push('/doctor/${appointment.doctorId}'),

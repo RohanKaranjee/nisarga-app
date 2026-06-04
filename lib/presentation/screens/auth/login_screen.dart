@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -81,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String _selectedRole = 'patient';
+  bool _isResettingPassword = false;
 
   @override
   void dispose() {
@@ -161,25 +163,37 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'Welcome Back',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontSize: compact ? 28 : 32,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              fontSize: compact ? 28 : 32,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Sign in to continue caring for your health',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.8),
-                        ),
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
                       ),
                       SizedBox(height: compact ? 24 : 36),
                       _RoleSelector(
                         selectedRole: _selectedRole,
                         onChanged: (role) =>
                             setState(() => _selectedRole = role),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _roleHint,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.82),
+                              fontWeight: FontWeight.w500,
+                            ),
                       ),
                       const SizedBox(height: 16),
                       Card(
@@ -256,8 +270,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton(
-                                    onPressed: _sendPasswordReset,
-                                    child: const Text('Forgot Password?'),
+                                    onPressed: _isResettingPassword
+                                        ? null
+                                        : _sendPasswordReset,
+                                    child: Text(_isResettingPassword
+                                        ? 'Sending link...'
+                                        : 'Forgot Password?'),
                                   ),
                                 ),
                                 SizedBox(height: compact ? 8 : 16),
@@ -300,42 +318,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       SizedBox(height: compact ? 16 : 24),
-                      const Row(
-                        children: [
-                          Expanded(
-                            child: Divider(color: Colors.white30, thickness: 1),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(color: Colors.white30, thickness: 1),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: compact ? 16 : 24),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/phone-login'),
-                        icon: const Icon(Icons.phone_android,
-                            color: Colors.white),
-                        label: const Text(
-                          'Login with Phone Number',
-                          style: TextStyle(color: Colors.white, fontSize: 15),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side:
-                              const BorderSide(color: Colors.white70, width: 2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: compact ? 16 : 24),
                       Wrap(
                         alignment: WrapAlignment.center,
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -371,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_selectedRole == 'admin') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Admin accounts must be created by an existing admin.'),
+          content: Text('Use the configured admin email to log in as admin.'),
         ),
       );
       return;
@@ -392,32 +374,133 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  String get _roleHint {
+    switch (_selectedRole) {
+      case 'admin':
+        return 'Admin login is limited to the approved admin email.';
+      case 'doctor':
+        return 'Doctors register once, then wait for admin approval.';
+      default:
+        return 'Patients can register and start using the app after email verification.';
+    }
+  }
+
   String _friendlyError(Object error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'invalid-email':
+          return 'Enter a valid email address.';
+        case 'user-disabled':
+          return 'This account is disabled.';
+        case 'user-not-found':
+          return 'No account found with this email.';
+        case 'wrong-password':
+        case 'invalid-credential':
+          return 'Email or password is incorrect.';
+        case 'too-many-requests':
+          return 'Too many attempts. Try again later.';
+        case 'network-request-failed':
+          return 'Check your internet connection and try again.';
+      }
+    }
     return error.toString().replaceFirst('Exception: ', '');
   }
 
   Future<void> _sendPasswordReset() async {
     final email = _emailController.text.trim();
-    if (email.isEmpty) {
+    if (!_emailLooksValid(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your email first.')),
+        const SnackBar(content: Text('Enter a valid email first.')),
       );
       return;
     }
+    setState(() => _isResettingPassword = true);
     try {
       await Provider.of<AuthProvider>(context, listen: false)
           .sendPasswordResetEmail(email);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent.')),
-        );
+        _showResetSentSheet(email);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Password reset failed: ${e.toString()}')),
+          SnackBar(content: Text(_friendlyResetError(e))),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isResettingPassword = false);
     }
+  }
+
+  bool _emailLooksValid(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
+  String _friendlyResetError(Object error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'invalid-email':
+          return 'Enter a valid email address.';
+        case 'user-not-found':
+          return 'No account exists for this email.';
+        case 'network-request-failed':
+          return 'Check your internet connection and try again.';
+        case 'too-many-requests':
+          return 'Too many reset requests. Try again later.';
+      }
+    }
+    return 'Could not send reset link. Try again.';
+  }
+
+  void _showResetSentSheet(String email) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.mark_email_read_outlined,
+                  color: AppColors.primary,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Reset link sent',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Check $email and open the Firebase password reset link.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

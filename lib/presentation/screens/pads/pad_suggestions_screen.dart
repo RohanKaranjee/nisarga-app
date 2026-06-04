@@ -123,7 +123,7 @@ class _ProductCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +133,7 @@ class _ProductCard extends StatelessWidget {
             child: Container(
               width: 64,
               height: 64,
-              color: AppColors.primaryLight.withOpacity(0.2),
+              color: AppColors.primaryLight.withValues(alpha: 0.2),
               child: product.imageUrl.isEmpty
                   ? const Icon(Icons.shopping_bag,
                       color: AppColors.primary, size: 30)

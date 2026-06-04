@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nisarga_app/presentation/widgets/gradient_header.dart';
-import 'package:nisarga_app/core/theme/app_colors.dart';
 
 void main() {
-  testWidgets('GradientHeader renders correctly with title and subtitle', (WidgetTester tester) async {
+  testWidgets('GradientHeader renders correctly with title and subtitle',
+      (WidgetTester tester) async {
     // Define test values
     const testTitle = 'My Test Title';
     const testSubtitle = 'My Test Subtitle';
@@ -34,7 +34,8 @@ void main() {
 
     // Verify the background is a container (GradientHeader is built with a Container)
     expect(
-      find.byWidgetPredicate((widget) => widget is Container && widget.decoration is BoxDecoration),
+      find.byWidgetPredicate((widget) =>
+          widget is Container && widget.decoration is BoxDecoration),
       findsWidgets,
     );
   });

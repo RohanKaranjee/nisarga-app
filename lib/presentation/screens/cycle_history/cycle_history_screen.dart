@@ -40,9 +40,10 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                 const SizedBox(height: 24),
 
                 // Toggle
-                  Container(
+                Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Row(
@@ -64,7 +65,11 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                               style: TextStyle(
                                 color: _showCharts
                                     ? Colors.white
-                                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                                    : Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color
+                                        ?.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -88,7 +93,11 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                               style: TextStyle(
                                 color: !_showCharts
                                     ? Colors.white
-                                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                                    : Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color
+                                        ?.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -138,7 +147,8 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                        border: Border.all(
+                            color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,9 +161,9 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                             height: 200,
                             child: LineChart(
                               LineChartData(
-                                gridData: FlGridData(show: false),
+                                gridData: const FlGridData(show: false),
                                 titlesData: FlTitlesData(
-                                  leftTitles: AxisTitles(
+                                  leftTitles: const AxisTitles(
                                       sideTitles: SideTitles(
                                           showTitles: true, reservedSize: 30)),
                                   bottomTitles: AxisTitles(
@@ -175,10 +185,10 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                                             }
                                             return const Text('');
                                           })),
-                                  rightTitles: AxisTitles(
+                                  rightTitles: const AxisTitles(
                                       sideTitles:
                                           SideTitles(showTitles: false)),
-                                  topTitles: AxisTitles(
+                                  topTitles: const AxisTitles(
                                       sideTitles:
                                           SideTitles(showTitles: false)),
                                 ),
@@ -203,10 +213,11 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                                     color: AppColors.primary,
                                     barWidth: 3,
                                     isStrokeCapRound: true,
-                                    dotData: FlDotData(show: true),
+                                    dotData: const FlDotData(show: true),
                                     belowBarData: BarAreaData(
                                       show: true,
-                                      color: AppColors.primary.withOpacity(0.2),
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.2),
                                     ),
                                   ),
                                 ],
@@ -231,7 +242,8 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      border:
+                          Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,9 +267,9 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                             height: 200,
                             child: BarChart(
                               BarChartData(
-                                gridData: FlGridData(show: false),
+                                gridData: const FlGridData(show: false),
                                 titlesData: FlTitlesData(
-                                  leftTitles: AxisTitles(
+                                  leftTitles: const AxisTitles(
                                       sideTitles: SideTitles(
                                           showTitles: true, reservedSize: 30)),
                                   bottomTitles: AxisTitles(
@@ -280,10 +292,10 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                                             }
                                             return const Text('');
                                           })),
-                                  rightTitles: AxisTitles(
+                                  rightTitles: const AxisTitles(
                                       sideTitles:
                                           SideTitles(showTitles: false)),
-                                  topTitles: AxisTitles(
+                                  topTitles: const AxisTitles(
                                       sideTitles:
                                           SideTitles(showTitles: false)),
                                 ),
@@ -337,8 +349,8 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             borderRadius: BorderRadius.circular(15),
-                            border:
-                                Border.all(color: Colors.grey.withOpacity(0.2)),
+                            border: Border.all(
+                                color: Colors.grey.withValues(alpha: 0.2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,7 +370,7 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
                                         horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: AppColors.primaryLight
-                                          .withOpacity(0.2),
+                                          .withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -476,9 +488,9 @@ class _CycleHistoryScreenState extends State<CycleHistoryScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryLight.withOpacity(0.1),
+        color: AppColors.primaryLight.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
