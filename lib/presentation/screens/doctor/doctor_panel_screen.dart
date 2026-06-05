@@ -1429,7 +1429,9 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
   late final TextEditingController _locationController;
   late final TextEditingController _qualificationController;
   late final TextEditingController _aboutController;
-  late final TextEditingController _availabilityController;
+  late final TextEditingController _timeController;
+  late final List<Map<String, String>> _availabilitySlots;
+  String _selectedAvailabilityDay = _allowedDays.first;
   bool _saving = false;
 
   @override
@@ -1444,12 +1446,22 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
     _qualificationController =
         TextEditingController(text: doctor?.qualifications.join('\n') ?? '');
     _aboutController = TextEditingController(text: doctor?.about ?? '');
-    _availabilityController = TextEditingController(
-      text: doctor?.availability
-              .map((slot) => '${slot['day']}|${slot['time']}')
-              .join('\n') ??
-          '',
-    );
+    _timeController = TextEditingController();
+    _availabilitySlots =
+        (doctor?.availability ?? const <Map<String, String>>[]).where((slot) {
+      final day = slot['day'] ?? '';
+      final time = slot['time'] ?? '';
+      return _allowedDays.contains(day) && time.trim().isNotEmpty;
+    }).map((slot) {
+      return {
+        'day': slot['day'] ?? _allowedDays.first,
+        'time': (slot['time'] ?? '').trim(),
+      };
+    }).toList();
+    if (_availabilitySlots.isNotEmpty) {
+      _selectedAvailabilityDay =
+          _availabilitySlots.first['day'] ?? _allowedDays.first;
+    }
   }
 
   @override
@@ -1460,7 +1472,7 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
     _locationController.dispose();
     _qualificationController.dispose();
     _aboutController.dispose();
-    _availabilityController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -1482,32 +1494,13 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
       return;
     }
 
-    final availability = <Map<String, String>>[];
-    final invalidAvailability = <String>[];
-    for (final rawLine in _availabilityController.text.split('\n')) {
-      final line = rawLine.trim();
-      if (line.isEmpty) continue;
-      if (!line.contains('|')) {
-        invalidAvailability.add(line);
-        continue;
-      }
-      final parts = line.split('|');
-      final day = parts.first.trim();
-      final time = parts.sublist(1).join('|').trim();
-      if (!_allowedDays.contains(day) || time.isEmpty) {
-        invalidAvailability.add(line);
-        continue;
-      }
-      availability.add({'day': day, 'time': time});
-    }
-    if (invalidAvailability.isNotEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Use availability format like Monday|10:00 AM.'),
-        ),
-      );
-      return;
-    }
+    final availability = _availabilitySlots
+        .map((slot) => {
+              'day': slot['day'] ?? _allowedDays.first,
+              'time': slot['time'] ?? '',
+            })
+        .where((slot) => (slot['time'] ?? '').trim().isNotEmpty)
+        .toList();
     final qualifications = _qualificationController.text
         .split('\n')
         .map((line) => line.trim())
@@ -1584,13 +1577,9 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
             _field(_qualificationController, 'Qualifications, one per line',
                 maxLines: 3),
             _field(_aboutController, 'About', maxLines: 3),
-            _field(
-              _availabilityController,
-              'Availability: Monday|10:00 AM',
-              maxLines: 5,
-            ),
+            _availabilityEditor(context),
             const Text(
-              'Optional. Allowed days: Monday, Tuesday, Wednesday, Thursday, Saturday. If empty, patients can request timing.',
+              'Optional. If no slots are added, patients can still request timing and you can reschedule later.',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -1605,6 +1594,124 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
         ),
       ),
     );
+  }
+
+  Widget _availabilityEditor(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Availability Slots',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Day',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedAvailabilityDay,
+                      isExpanded: true,
+                      items: _allowedDays
+                          .map(
+                            (day) => DropdownMenuItem(
+                              value: day,
+                              child: Text(day),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (day) {
+                        if (day == null) return;
+                        setState(() => _selectedAvailabilityDay = day);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _timeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Time',
+                    hintText: '10:00 AM',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _addAvailabilitySlot,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Slot'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (_availabilitySlots.isEmpty)
+            Text(
+              'No fixed slots added.',
+              style: TextStyle(color: Colors.grey.shade700),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var index = 0; index < _availabilitySlots.length; index++)
+                  InputChip(
+                    label: Text(
+                      '${_availabilitySlots[index]['day']} - ${_availabilitySlots[index]['time']}',
+                    ),
+                    onDeleted: () {
+                      setState(() => _availabilitySlots.removeAt(index));
+                    },
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _addAvailabilitySlot() {
+    final time = _timeController.text.trim();
+    if (time.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter slot time, example 10:00 AM.')),
+      );
+      return;
+    }
+    final duplicate = _availabilitySlots.any((slot) {
+      return slot['day'] == _selectedAvailabilityDay &&
+          slot['time']?.toLowerCase() == time.toLowerCase();
+    });
+    if (duplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This slot is already added.')),
+      );
+      return;
+    }
+    setState(() {
+      _availabilitySlots.add({
+        'day': _selectedAvailabilityDay,
+        'time': time,
+      });
+      _timeController.clear();
+    });
   }
 
   Widget _field(TextEditingController controller, String label,
