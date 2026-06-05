@@ -556,6 +556,23 @@ class HomeScreen extends StatelessWidget {
                               fontSize: 12, color: Colors.grey)),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule,
+                          color: AppColors.primary, size: 14),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _doctorSlotLabel(doctor),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.primary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -563,6 +580,17 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _doctorSlotLabel(Doctor doctor) {
+    final slots = doctor.availability.where((slot) {
+      return (slot['day'] ?? '').trim().isNotEmpty &&
+          (slot['time'] ?? '').trim().isNotEmpty;
+    }).toList();
+    if (slots.isEmpty) return 'Request timing';
+    final first = slots.first;
+    final extra = slots.length > 1 ? ' +${slots.length - 1} more' : '';
+    return '${first['day']} ${first['time']}$extra';
   }
 
   Widget _buildLiveFeaturedArticles(BuildContext context) {

@@ -1520,11 +1520,12 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
       photoUrl: existing?.photoUrl ?? '',
       about: _aboutController.text.trim(),
       clinic: _clinicController.text.trim(),
-      fee: '',
+      fee: existing?.fee ?? '',
       status: existing?.status ?? 'pending',
       availability: availability,
       qualifications: qualifications,
       articles: existing?.articles ?? const [],
+      active: existing?.active ?? true,
     );
 
     setState(() => _saving = true);
@@ -1579,7 +1580,7 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
             _field(_aboutController, 'About', maxLines: 3),
             _availabilityEditor(context),
             const Text(
-              'Optional. If no slots are added, patients can still request timing and you can reschedule later.',
+              'After adding or removing slots, tap Save Profile & Slots to publish them. If no slots are added, patients can still request timing.',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -1587,7 +1588,7 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _saving ? null : _save,
-                child: Text(_saving ? 'Saving...' : 'Save Profile'),
+                child: Text(_saving ? 'Saving...' : 'Save Profile & Slots'),
               ),
             ),
           ],
@@ -1712,6 +1713,11 @@ class _DoctorProfileFormState extends State<_DoctorProfileForm> {
       });
       _timeController.clear();
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Slot added. Tap Save Profile & Slots to publish.'),
+      ),
+    );
   }
 
   Widget _field(TextEditingController controller, String label,
